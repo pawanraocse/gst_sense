@@ -1,0 +1,58 @@
+<div class="layout-wrapper">
+  <!-- Glass Topbar -->
+  <div class="layout-topbar flex justify-content-between align-items-center">
+
+    <!-- Left: Logo & Menu -->
+    <div class="flex align-items-center gap-4 flex-1">
+      <div class="flex align-items-center gap-2">
+        <div
+          class="w-2rem h-2rem bg-primary-500 border-round flex align-items-center justify-content-center text-white font-bold">
+          <i class="pi pi-cloud"></i>
+        </div>
+        <span class="font-bold text-xl text-900 tracking-tight">SaaS Template</span>
+      </div>
+
+      <!-- PrimeNG Menubar (Transparent) -->
+      <p-menubar [model]="items()" styleClass="border-none w-full shadow-none bg-transparent"></p-menubar>
+    </div>
+
+    <!-- Right: User Profile -->
+    <div class="flex align-items-center gap-3">
+      <p-button 
+        label="Share" 
+        icon="pi pi-heart" 
+        [rounded]="true" 
+        [text]="true" 
+        severity="help" 
+        class="hidden sm:inline-block"
+        pTooltip="Share with friends"
+        tooltipPosition="bottom"
+        (onClick)="openShareDialog()">
+      </p-button>
+
+      <ng-container *ngIf="authService.user() as user">
+        <div class="hidden md:flex flex-column align-items-end">
+          <span class="text-sm font-semibold text-900">{{ user.email }}</span>
+          <span class="text-xs text-500 bg-primary-50 text-primary-700 px-2 border-round-lg">
+            {{ user.tenantType === 'ORGANIZATION' ? 'Organization' : 'Personal' }}
+          </span>
+        </div>
+
+        <p-avatar icon="pi pi-user"
+          styleClass="bg-primary-100 text-primary-700 cursor-pointer hover:bg-primary-200 transition-colors"
+          shape="circle">
+        </p-avatar>
+
+        <p-button icon="pi pi-power-off" [rounded]="true" [text]="true" severity="danger" pTooltip="Logout"
+          tooltipPosition="bottom" (onClick)="logout()">
+        </p-button>
+      </ng-container>
+    </div>
+  </div>
+
+  <div class="layout-content p-4 md:p-6 animate-fade-in delay-100">
+    <router-outlet></router-outlet>
+  </div>
+
+  <app-share-dialog #shareDialog></app-share-dialog>
+</div>

@@ -1,0 +1,176 @@
+<div class="grid p-4 md:p-6 fadein animation-duration-500">
+  <!-- Header Section -->
+  <div class="col-12 mb-5">
+    <div class="flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center gap-4">
+      <div>
+        <h1 class="text-3xl font-bold text-900 m-0 tracking-tight">Dashboard</h1>
+        <p class="text-secondary mt-2 text-lg">
+          Welcome back! Here is your overview.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Info Card -->
+  <div class="col-12 md:col-4">
+    <div class="glass-card h-full p-4 flex flex-column gap-4">
+      <div class="flex align-items-center gap-3">
+        <div class="w-4rem h-4rem border-circle bg-primary-100 flex align-items-center justify-content-center">
+          <i class="pi pi-user text-primary-600 text-2xl"></i>
+        </div>
+        <div>
+          <div class="text-xl font-bold text-900">User Profile</div>
+          <div class="text-secondary text-sm">Account Details</div>
+        </div>
+      </div>
+
+      <div *ngIf="authService.user() as user" class="flex flex-column gap-3 mt-2">
+        <div
+          class="flex justify-content-between align-items-center p-3 border-round bg-white-alpha-50 border-1 surface-border">
+          <span class="font-medium text-600">Email</span>
+          <span class="text-900 font-semibold text-sm">{{ user.email }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Welcome Card -->
+  <div class="col-12 md:col-8">
+    <div class="glass-card h-full p-5 relative overflow-hidden">
+      <!-- Decor circle in card -->
+      <div class="absolute top-0 right-0 w-15rem h-15rem border-circle bg-primary-50 opacity-50 blur-xl"
+        style="transform: translate(30%, -30%);"></div>
+
+      <div class="relative z-1 flex flex-column h-full justify-content-center">
+        <div class="text-3xl font-bold text-900 mb-3">Welcome to your Platform! 🎉</div>
+        <p class="line-height-3 text-700 text-lg mb-5" style="max-width: 600px;">
+          You are authenticated securely via AWS Cognito.
+        </p>
+
+        <div class="grid">
+          <div class="col-12 md:col-4">
+            <div class="p-3 border-round bg-white shadow-sm border-1 surface-border h-full">
+              <i class="pi pi-shield text-2xl text-primary mb-2"></i>
+              <div class="font-bold text-900 mb-1">Secure Access</div>
+              <div class="text-sm text-600">Enterprise-grade security</div>
+            </div>
+          </div>
+          <div class="col-12 md:col-4">
+            <div class="p-3 border-round bg-white shadow-sm border-1 surface-border h-full">
+              <i class="pi pi-bolt text-2xl text-primary mb-2"></i>
+              <div class="font-bold text-900 mb-1">Performance</div>
+              <div class="text-sm text-600">Optimized for scale</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Entries Management -->
+  <div class="col-12 mt-4">
+    <div class="glass-card p-0 overflow-hidden">
+      <p-table [value]="entries()" [lazy]="true" (onLazyLoad)="loadEntries($event)" [paginator]="true" [rows]="10"
+        [totalRecords]="totalRecords()" [loading]="loading()" styleClass="p-datatable-lg"
+        [tableStyle]="{'min-width': '50rem'}">
+
+        <ng-template pTemplate="caption">
+          <div class="p-4 flex align-items-center justify-content-between">
+            <div>
+              <div class="text-xl font-bold text-900">
+                My Data
+              </div>
+              <div class="text-secondary text-sm mt-1">
+                Manage your data entries
+              </div>
+            </div>
+            <p-button label="New Entry" icon="pi pi-plus" (click)="showCreateDialog()"
+              styleClass="p-button-primary shadow-2"></p-button>
+          </div>
+        </ng-template>
+
+        <ng-template pTemplate="header">
+          <tr>
+            <th>Key</th>
+            <th>Value</th>
+            <th>Created At</th>
+            <th style="width: 10rem">Actions</th>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="body" let-entry>
+          <tr class="transition-colors transition-duration-200">
+            <td class="font-semibold text-900">{{ entry.key }}</td>
+            <td class="text-700 font-mono text-sm bg-surface-50 border-round px-2 py-1 inline-block mt-2 md:mt-0">{{
+              entry.value }}</td>
+            <td class="text-600 text-sm">{{ entry.createdAt | date:'mediumDate' }}</td>
+            <td>
+              <div class="flex gap-2">
+                <button pButton icon="pi pi-pencil"
+                  class="p-button-rounded p-button-text p-button-secondary hover:surface-100" (click)="editEntry(entry)"
+                  pTooltip="Edit"></button>
+                <button pButton icon="pi pi-trash"
+                  class="p-button-rounded p-button-text p-button-danger hover:bg-red-50" (click)="deleteEntry(entry)"
+                  pTooltip="Delete"></button>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+
+        <ng-template pTemplate="emptymessage">
+          <tr>
+            <td colspan="5" class="text-center p-6">
+              <div class="flex flex-column align-items-center gap-3">
+                <div class="w-5rem h-5rem border-circle bg-surface-50 flex align-items-center justify-content-center">
+                  <i class="pi pi-folder-open text-4xl text-400"></i>
+                </div>
+                <div class="text-700 font-semibold text-lg">No entries found</div>
+                <div class="text-500">Create your first entry to get started</div>
+                <p-button label="Create Entry" icon="pi pi-plus" [text]="true" (click)="showCreateDialog()"></p-button>
+              </div>
+            </td>
+          </tr>
+        </ng-template>
+      </p-table>
+    </div>
+  </div>
+</div>
+
+<!-- Create/Edit Dialog -->
+<p-dialog [(visible)]="displayDialog" [header]="dialogHeader()" [modal]="true" [style]="{width: '450px'}"
+  styleClass="p-fluid glass-dialog" [draggable]="false" [resizable]="false" [maskStyleClass]="'backdrop-blur-sm'">
+
+  <ng-template pTemplate="content">
+    <form [formGroup]="entryForm" class="flex flex-column gap-4 mt-2">
+      <div *ngIf="error()" class="mb-2">
+        <p-message severity="error" [text]="error()!" styleClass="w-full"></p-message>
+      </div>
+
+      <div class="field">
+        <label for="key" class="font-semibold text-800 mb-2 block">Key Name</label>
+        <span class="p-input-icon-left w-full">
+          <i class="pi pi-tag text-500"></i>
+          <input pInputText id="key" formControlName="key" placeholder="e.g. API_KEY" class="w-full" />
+        </span>
+        <small class="text-500 block mt-1">Unique identifier for this entry</small>
+      </div>
+
+      <div class="field">
+        <label for="value" class="font-semibold text-800 mb-2 block">Value</label>
+        <span class="p-input-icon-left w-full">
+          <i class="pi pi-code text-500"></i>
+          <input pInputText id="value" formControlName="value" placeholder="e.g. sk-123456789" class="w-full" />
+        </span>
+        <small class="text-500 block mt-1">The secret value to store</small>
+      </div>
+    </form>
+  </ng-template>
+
+  <ng-template pTemplate="footer">
+    <div class="flex justify-content-end gap-2 pt-3 border-top-1 surface-border">
+      <p-button label="Cancel" [text]="true" (click)="displayDialog.set(false)" styleClass="text-600"></p-button>
+      <p-button label="Save Entry" icon="pi pi-check" (click)="saveEntry()" [loading]="saving()"
+        [disabled]="entryForm.invalid"></p-button>
+    </div>
+  </ng-template>
+</p-dialog>

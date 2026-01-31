@@ -1,0 +1,173 @@
+# =============================================================================
+# Docker Compose Local Development
+# =============================================================================
+# Uses extends pattern for compatibility with Docker Compose v2.30+
+# Extends base service definitions and adds local Postgres/Redis containers
+#
+# Usage:
+#   docker-compose up -d
+# =============================================================================
+version: "3.9"
+
+# =============================================================================
+# YAML Anchors for Shared Configuration
+# =============================================================================
+x-aws-config: &aws-config
+  AWS_REGION: ${AWS_REGION}
+  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+  AWS_PROFILE: ${AWS_PROFILE}
+
+x-eureka-config: &eureka-config
+  EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+  EUREKA_INSTANCE_PREFER_IP_ADDRESS: "false"
+
+x-datasource-config: &datasource-config
+  SPRING_DATASOURCE_DRIVER_CLASS_NAME: org.postgresql.Driver
+  SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:${POSTGRES_PORT}/${POSTGRES_DB_NAME}
+  SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+  SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+
+x-redis-config: &redis-config
+  REDIS_HOST: redis
+  REDIS_PORT: ${REDIS_PORT}
+
+x-otel-config: &otel-config
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318/v1/traces
+
+x-monitoring-config: &monitoring-config
+  MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics
+  MANAGEMENT_ENDPOINTS_WEB_BASE_PATH: /actuator
+
+services:
+
+  # ============================================================================
+  # PostgreSQL
+  # ============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: gst-buddy-postgres-${ENV}
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB_NAME}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    networks:
+      - app-network
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================================================
+  # Redis
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: cloud-infra-redis-${ENV}
+    command: redis-server --appendonly yes
+    networks:
+      - app-network
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT}:6379"
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================================================
+  # OpenTelemetry Collector
+  # ============================================================================
+  otel-collector:
+    extends:
+      file: docker-compose.base.yml
+      service: otel-collector
+
+  # ============================================================================
+  # Eureka Server
+  # ============================================================================
+  eureka-server:
+    extends:
+      file: docker-compose.base.yml
+      service: eureka-server
+
+  # ============================================================================
+  # Gateway Service
+  # ============================================================================
+  gateway-service:
+    extends:
+      file: docker-compose.base.yml
+      service: gateway-service
+    environment:
+      <<: [ *aws-config, *eureka-config, *redis-config, *otel-config ]
+      SPRING_APPLICATION_NAME: gateway-service
+      SERVER_PORT: ${GATEWAY_PORT}
+      EUREKA_INSTANCE_HOSTNAME: gateway-service
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: health,info,metrics,gateway
+    depends_on:
+      eureka-server:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+  # ============================================================================
+  # Backend Service (Flyway owner)
+  # ============================================================================
+  backend-service:
+    extends:
+      file: docker-compose.base.yml
+      service: backend-service
+    environment:
+      <<: [ *eureka-config, *datasource-config, *redis-config, *otel-config, *monitoring-config ]
+      SPRING_APPLICATION_NAME: backend-service
+      SERVER_PORT: ${BACKEND_PORT}
+      EUREKA_INSTANCE_HOSTNAME: backend-service
+      server.port: 8082
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+  # ============================================================================
+  # Auth Service
+  # ============================================================================
+  auth-service:
+    extends:
+      file: docker-compose.base.yml
+      service: auth-service
+    environment:
+      <<: [ *aws-config, *eureka-config, *datasource-config, *redis-config, *otel-config, *monitoring-config ]
+      SPRING_APPLICATION_NAME: auth-service
+      SERVER_PORT: ${AUTH_PORT}
+      SPRING_PROFILES_ACTIVE: ${AUTH_PROFILE:-}
+      EUREKA_INSTANCE_HOSTNAME: auth-service
+      SES_FROM_EMAIL: ${SES_FROM_EMAIL:-noreply@example.com}
+      # Flyway configuration - baseline to track manually-run migrations  
+      SPRING_FLYWAY_BASELINE_ON_MIGRATE: "true"
+      SPRING_FLYWAY_BASELINE_VERSION: "0"
+      SPRING_FLYWAY_ENABLED: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      eureka-server:
+        condition: service_healthy
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  redis_data:

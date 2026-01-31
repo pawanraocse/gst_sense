@@ -1,0 +1,190 @@
+spring:
+  application:
+    name: auth-service
+
+  # Tenant datasource routing is handled by TenantDataSourceRouter
+  # Individual tenant connections are created dynamically
+  
+  # Default datasource for health checks and when no tenant context is set
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/${POSTGRES_DB_NAME:cloud-infra-lite}}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        default_schema: public
+        jdbc:
+          batch_size: 20
+        order_inserts: true
+        order_updates: true
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    locations: classpath:db/migration
+    schemas: public
+    table: flyway_auth_history
+    validate-on-migrate: true
+
+  # Redis configuration (for Redisson distributed caching/locking)
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+
+  # Exclude Redisson auto-config in tests or when Redis unavailable
+  autoconfigure:
+    exclude:
+      - ${REDISSON_EXCLUDE:}
+
+  security:
+    oauth2:
+      client:
+        registration:
+          cognito:
+            client-id: ${COGNITO_CLIENT_ID}
+            client-secret: ${COGNITO_CLIENT_SECRET}
+            scope:
+              - openid
+              - email
+              - profile
+              - phone
+              - aws.cognito.signin.user.admin
+            redirect-uri: ${COGNITO_REDIRECT_URI:http://localhost:8081/auth/login/oauth2/code/cognito}
+            authorization-grant-type: authorization_code
+            client-name: Cognito
+        provider:
+          cognito:
+            issuer-uri: ${COGNITO_ISSUER_URI}
+            user-name-attribute: username
+      resourceserver:
+        jwt:
+          issuer-uri: ${COGNITO_ISSUER_URI}
+
+# Cognito configuration
+cognito:
+  user-pool-id: ${COGNITO_USER_POOL_ID}
+  client-id: ${COGNITO_CLIENT_ID}
+  client-secret: ${COGNITO_CLIENT_SECRET:}
+  domain: ${COGNITO_DOMAIN}
+  region: ${AWS_REGION:us-east-1}
+  logout-redirect-url: ${COGNITO_LOGOUT_REDIRECT_URL:http://localhost:8081/auth/logged-out}
+
+# AWS Configuration
+aws:
+  region: ${AWS_REGION:us-east-1}
+  ses:
+    # From email address for invitation emails (must be verified in SES)
+    from-email: ${SES_FROM_EMAIL:noreply@example.com}
+
+
+
+
+server:
+  port: ${SERVER_PORT:8081}
+  servlet:
+    context-path: /auth
+
+# Eureka Client
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka}
+    register-with-eureka: true
+    fetch-registry: true
+    registry-fetch-interval-seconds: 30
+
+  instance:
+    prefer-ip-address: ${EUREKA_INSTANCE_PREFER_IP_ADDRESS:false}
+    hostname: ${EUREKA_INSTANCE_HOSTNAME:localhost}
+    lease-renewal-interval-in-seconds: 30
+    lease-expiration-duration-in-seconds: 90
+    metadata-map:
+      version: ${project.version:1.0.0}
+      region: ${AWS_REGION:us-east-1}
+
+management:
+  tracing:
+    enabled: ${TRACING_ENABLED:true}
+    sampling:
+      probability: ${TRACING_PROBABILITY:1.0}
+  otlp:
+    tracing:
+      endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.learning.authservice: DEBUG
+    org.springframework.security: INFO
+    org.springframework.web: INFO
+
+# NT-21 singleton Cognito client feature flag
+auth:
+  cognito:
+    singleton:
+      enabled: true
+
+# Datasource configuration
+app:
+  datasource:
+    platform:
+      url: ${PLATFORM_DATASOURCE_URL:jdbc:postgresql://localhost:5432/${POSTGRES_DB_NAME:cloud-infra-lite}}
+      username: ${PLATFORM_DATASOURCE_USERNAME:postgres}
+      password: ${PLATFORM_DATASOURCE_PASSWORD:postgres}
+
+# Resilience4j Circuit Breaker Configuration
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        registerHealthIndicator: true
+        slidingWindowSize: 10
+        minimumNumberOfCalls: 5
+        permittedNumberOfCallsInHalfOpenState: 3
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+        waitDurationInOpenState: 10s
+        failureRateThreshold: 50
+        eventConsumerBufferSize: 10
+    instances:
+      platformService:
+        baseConfig: default
+        waitDurationInOpenState: 5s
+
+  retry:
+    configs:
+      default:
+        maxAttempts: 3
+        waitDuration: 500ms
+        enableExponentialBackoff: true
+        exponentialBackoffMultiplier: 2
+    instances:
+      platformService:
+        baseConfig: default
+
+  timelimiter:
+    configs:
+      default:
+        timeoutDuration: 10s
+    instances:
+      platformService:
+        timeoutDuration: 5s
+

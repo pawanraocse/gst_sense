@@ -1,0 +1,37 @@
+<div class="flex align-items-center justify-content-center min-h-screen surface-ground">
+  <div class="surface-card p-4 shadow-2 border-round w-full lg:w-4">
+    <div class="text-center mb-5">
+      <div class="text-900 text-3xl font-medium mb-3">Welcome Back</div>
+      <span class="text-600 font-medium line-height-3">Don't have an account?</span>
+      <a routerLink="/auth/signup/personal" class="font-medium no-underline ml-2 text-blue-500 cursor-pointer">Sign up</a>
+    </div>
+
+    <p-card>
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
+        <div class="mb-3">
+          <label for="email" class="block text-900 font-medium mb-2">Email</label>
+          <input id="email" type="text" pInputText formControlName="email" class="w-full mb-3" placeholder="Email address">
+        </div>
+
+        <div class="mb-3">
+          <label for="password" class="block text-900 font-medium mb-2">Password</label>
+          <p-password id="password" formControlName="password" [toggleMask]="true" [feedback]="false" styleClass="w-full" inputStyleClass="w-full"></p-password>
+        </div>
+
+        <div class="flex align-items-center justify-content-between mb-5">
+          <a routerLink="/auth/forgot-password" class="font-medium no-underline ml-2 text-blue-500 text-right cursor-pointer">Forgot password?</a>
+        </div>
+
+        <p-button label="Sign In" type="submit" styleClass="w-full" [loading]="loading()"></p-button>
+        
+        <p-message *ngIf="error()" severity="error" [text]="error() || ''" styleClass="w-full mt-3 block"></p-message>
+      </form>
+
+      <p-divider align="center" styleClass="my-4">
+          <span class="p-tag">OR</span>
+      </p-divider>
+
+      <button pButton pRipple label="Sign in with Google" icon="pi pi-google" class="w-full p-button-outlined p-button-secondary" (click)="loginWithGoogle()"></button>
+    </p-card>
+  </div>
+</div>

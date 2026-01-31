@@ -1,0 +1,140 @@
+# =============================================================================
+# Docker Compose Base Configuration
+# =============================================================================
+# Base service definitions for all environments (local, budget, production)
+# This file should NOT be run directly - use extends in other compose files
+# 
+# Usage:
+#   Local:  docker-compose up -d  (uses docker-compose.yml which extends this)
+#   Budget: docker-compose -f docker-compose.budget.yml up -d
+# =============================================================================
+
+services:
+
+
+  # ============================================================================
+  # OpenTelemetry Collector
+  # ============================================================================
+  otel-collector:
+    build:
+      context: ./docker/otel-collector
+      dockerfile: Dockerfile
+    container_name: gst-buddy-otel-collector
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    environment:
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_PROFILE: ""
+    networks:
+      - app-network
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+      - "13133:13133"
+    healthcheck:
+      disable: true
+    restart: unless-stopped
+
+  # ============================================================================
+  # Eureka Service Discovery
+  # ============================================================================
+  eureka-server:
+    build:
+      context: ./eureka-server
+      dockerfile: Dockerfile
+    image: ${PROJECT_NAME}-eureka-server:1.0.0
+    container_name: gst-buddy-eureka-server
+    environment:
+      SPRING_APPLICATION_NAME: eureka-server
+      SERVER_PORT: 8761
+      EUREKA_INSTANCE_HOSTNAME: eureka-server
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: "false"
+      EUREKA_CLIENT_FETCH_REGISTRY: "false"
+    networks:
+      - app-network
+    ports:
+      - "8761:8761"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8761/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
+    restart: unless-stopped
+
+  # ============================================================================
+  # Gateway Service
+  # ============================================================================
+  gateway-service:
+    build:
+      context: ./gateway-service
+      dockerfile: Dockerfile
+    image: ${PROJECT_NAME}-gateway-service:1.0.0
+    container_name: gst-buddy-gateway-service
+    networks:
+      - app-network
+    ports:
+      - "8080:8080"
+      - "5005:5005"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8080/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 240s
+    restart: unless-stopped
+    # environment, depends_on set by extending file
+
+  # ============================================================================
+  # Backend Service
+  # ============================================================================
+  backend-service:
+    build:
+      context: ./backend-service
+      dockerfile: Dockerfile
+    image: ${PROJECT_NAME}-backend-service:1.0.0
+    container_name: gst-buddy-backend-service
+    networks:
+      - app-network
+    ports:
+      - "8082:8082"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8082/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 240s
+    restart: unless-stopped
+    # environment, depends_on set by extending file
+
+  # ============================================================================
+  # Auth Service
+  # ============================================================================
+  auth-service:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    image: ${PROJECT_NAME}-auth-service:1.0.0
+    container_name: gst-buddy-auth-service
+    volumes:
+      - ~/.aws:/root/.aws:ro
+    networks:
+      - app-network
+    ports:
+      - "8081:8081"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8081/auth/actuator/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 240s
+    restart: unless-stopped
+    # environment, depends_on set by extending file
+
+
+networks:
+  app-network:
+    driver: bridge

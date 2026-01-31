@@ -1,0 +1,56 @@
+// Google Button Override (Specific for Login)
+.google-btn {
+  &::ng-deep .p-button {
+    border-color: var(--surface-300) !important;
+    color: var(--surface-700) !important;
+    background: white !important;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: var(--surface-50) !important;
+      border-color: var(--surface-400) !important;
+      transform: translateY(-1px);
+    }
+
+    .pi-google {
+      color: #4285f4;
+    }
+  }
+}
+
+// Tenant Card Interactive States (Cleaner in SCSS than HTML)
+.tenant-card {
+  &.border-primary {
+    border-color: var(--primary-500) !important;
+    background: var(--primary-50) !important;
+    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15) !important;
+  }
+}
+
+.tenant-icon {
+  background: var(--primary-100);
+  color: var(--primary-600);
+}
+
+// Animation
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.tenant-card {
+  animation: slideIn 0.3s ease-out forwards;
+
+  @for $i from 1 through 5 {
+    &:nth-child(#{$i}) {
+      animation-delay: #{$i * 0.05}s;
+    }
+  }
+}
