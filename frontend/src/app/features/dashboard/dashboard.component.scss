@@ -1,33 +1,63 @@
 @use '../../../theme.scss' as *;
+@use '../../../animations.scss';
 
 .dashboard-container {
   min-height: 100vh;
+  position: relative;
+  /* Add subtle background decoration for dashboard if needed, or keep clean */
 }
 
-/* Buddy status cards (Teal/Amber palette) */
+/* Buddy status cards (Teal/Amber palette) - Now with Glass effect */
 .buddy-status-card {
-  &.buddy-status-teal {
-    background: var(--buddy-teal-light);
-    border: 2px solid var(--buddy-teal);
-    color: var(--buddy-teal-dark);
+  @include glass-card;
+  border-width: 0 0 0 4px;
+  /* Left accent border */
+  border-style: solid;
+  transition: transform 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.1);
   }
+
+  &.buddy-status-teal {
+    background: linear-gradient(to right, var(--buddy-teal-light), rgba(255, 255, 255, 0.8));
+    border-color: var(--buddy-teal);
+    color: var(--buddy-teal-dark);
+
+    .pi {
+      color: var(--buddy-teal);
+    }
+  }
+
   &.buddy-status-amber {
-    background: var(--buddy-amber-light);
-    border: 2px solid var(--buddy-amber);
+    background: linear-gradient(to right, var(--buddy-amber-light), rgba(255, 255, 255, 0.8));
+    border-color: var(--buddy-amber);
     color: var(--buddy-amber-dark);
+
+    .pi {
+      color: var(--buddy-amber);
+    }
   }
 }
 
 .buddy-info-card {
-  background: var(--buddy-teal-light);
-  border: 1px solid var(--buddy-teal);
-  border-radius: 12px;
+  @include glass-card;
+  background: linear-gradient(135deg, #f0f9ff 0%, #ffffff 100%);
+  border: 1px solid var(--blue-100);
 }
 
 .buddy-success-card {
-  background: var(--buddy-teal-light);
-  border: 1px solid var(--buddy-teal);
-  border-radius: 12px;
+  @include glass-card;
+  background: var(--success-bg);
+  border: 1px solid var(--success-500);
+}
+
+/* Override default surface cards with glass panels */
+.surface-50 {
+  background: rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
 }
 
 /* Custom Table Styles for Dashboard */
@@ -40,7 +70,7 @@
     }
 
     .p-datatable-thead>tr>th {
-      background: var(--surface-50);
+      background: rgba(255, 255, 255, 0.5);
       color: var(--surface-600);
       border-bottom: 1px solid var(--surface-200);
       font-weight: 600;
@@ -60,16 +90,38 @@
       }
 
       &:hover {
-        background: var(--surface-50) !important;
+        background: rgba(255, 255, 255, 0.4) !important;
       }
     }
   }
 }
 
-/* Responsive Grid Adjustments if needed beyond PrimeFlex */
-@media (max-width: 768px) {
-  .dashboard-header {
-    flex-direction: column;
-    align-items: flex-start;
+/* Animations */
+.col-12 {
+  animation: fadeInUp 0.5s ease-out forwards;
+  opacity: 0;
+
+  &:nth-child(1) {
+    animation-delay: 0.1s;
+  }
+
+  &:nth-child(2) {
+    animation-delay: 0.2s;
+  }
+
+  &:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
