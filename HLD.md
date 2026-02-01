@@ -11,6 +11,8 @@
 
 | Guide | Description |
 |-------|-------------|
+| 📋 **[Implementation Plan](IMPLEMENTATION_PLAN.md)** | Master plan; phases; Rule 37; clarifying decisions. |
+| 📐 **[Phase 1 LLD](docs/PHASE1_LLD.md)** | Phase 1: SOLID, API contract, verification gates. |
 | 🚀 **[Quick Start](docs/QUICK_START.md)** | **Start Here!** Prerequisites and deployment. |
 | 🔐 **[Authentication](docs/AUTHENTICATION.md)** | Signup, Login, and JWT flows. |
 | 🗄️ **[Database Schema](docs/DATABASE_SCHEMA.md)** | Service schemas and entity relationships. |

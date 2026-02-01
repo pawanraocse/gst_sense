@@ -4,6 +4,32 @@
   min-height: 100vh;
 }
 
+/* Buddy status cards (Teal/Amber palette) */
+.buddy-status-card {
+  &.buddy-status-teal {
+    background: var(--buddy-teal-light);
+    border: 2px solid var(--buddy-teal);
+    color: var(--buddy-teal-dark);
+  }
+  &.buddy-status-amber {
+    background: var(--buddy-amber-light);
+    border: 2px solid var(--buddy-amber);
+    color: var(--buddy-amber-dark);
+  }
+}
+
+.buddy-info-card {
+  background: var(--buddy-teal-light);
+  border: 1px solid var(--buddy-teal);
+  border-radius: 12px;
+}
+
+.buddy-success-card {
+  background: var(--buddy-teal-light);
+  border: 1px solid var(--buddy-teal);
+  border-radius: 12px;
+}
+
 /* Custom Table Styles for Dashboard */
 :host ::ng-deep {
   .p-datatable {

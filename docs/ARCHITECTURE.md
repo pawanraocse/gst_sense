@@ -66,9 +66,9 @@ graph TB
 
 
 ### 📦 Backend Service (Port 8082)
-**Role:** Domain-specific business logic (MIMIC/TEMPLATE).
+**Role:** Domain-specific business logic (GST Buddy).
 
-- **Business Logic:** Your actual SaaS application code (Orders, Projects, etc.).
+- **Business Logic:** Rule 37 ledger upload, calculation, export; future GST rules.
 - **Authorization:** Enforces `@RequirePermission` checks.
 - **Isolation:** Uses `TenantAware` entities to automatically filter data by `tenant_id` in shared database.
 
@@ -97,7 +97,7 @@ sequenceDiagram
     participant Backend
     participant DB
 
-    Browser->>Gateway: GET /api/v1/entries (JWT)
+    Browser->>Gateway: GET /api/v1/rule37/runs (JWT)
     Note over Gateway: Validate JWT
     Gateway->>Backend: Forward request<br/>+ X-User-Id
     Backend->>DB: Query Data

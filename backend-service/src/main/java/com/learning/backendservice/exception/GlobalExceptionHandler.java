@@ -1,7 +1,9 @@
 package com.learning.backendservice.exception;
 
+import com.learning.backendservice.exception.LedgerParseException;
 import com.learning.common.constants.HeaderNames;
 import com.learning.common.error.ErrorResponse;
+import com.learning.common.infra.exception.NotFoundException;
 import com.learning.common.infra.exception.PermissionDeniedException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -19,14 +21,22 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-        @ExceptionHandler(ResourceNotFoundException.class)
-        public ResponseEntity<ErrorResponse> handleResourceNotFound(
-                        ResourceNotFoundException ex, HttpServletRequest request) {
+        @ExceptionHandler({ResourceNotFoundException.class, NotFoundException.class})
+        public ResponseEntity<ErrorResponse> handleNotFound(
+                        Exception ex, HttpServletRequest request) {
                 String requestId = request.getHeader(HeaderNames.REQUEST_ID);
                 ErrorResponse error = ErrorResponse.of(HttpStatus.NOT_FOUND.value(), "NOT_FOUND", ex.getMessage(),
-                                requestId,
-                                request.getRequestURI());
+                                requestId, request.getRequestURI());
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+        }
+
+        @ExceptionHandler(LedgerParseException.class)
+        public ResponseEntity<ErrorResponse> handleLedgerParse(
+                        LedgerParseException ex, HttpServletRequest request) {
+                String requestId = request.getHeader(HeaderNames.REQUEST_ID);
+                ErrorResponse error = ErrorResponse.of(HttpStatus.BAD_REQUEST.value(), "PARSE_ERROR", ex.getMessage(),
+                                requestId, request.getRequestURI());
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
         }
 
         @ExceptionHandler(IllegalArgumentException.class)

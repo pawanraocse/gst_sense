@@ -1,176 +1,148 @@
 <div class="grid p-4 md:p-6 fadein animation-duration-500">
-  <!-- Header Section -->
-  <div class="col-12 mb-5">
+  <!-- Peace of Mind Header -->
+  <div class="col-12 mb-4">
     <div class="flex flex-column md:flex-row justify-content-between align-items-start md:align-items-center gap-4">
       <div>
-        <h1 class="text-3xl font-bold text-900 m-0 tracking-tight">Dashboard</h1>
-        <p class="text-secondary mt-2 text-lg">
-          Welcome back! Here is your overview.
+        <h1 class="text-3xl font-bold text-900 m-0 tracking-tight">GST Buddy</h1>
+        <p class="text-secondary mt-2 text-lg m-0">
+          Rule 37 — 180-day ITC Reversal & Interest Calculator
         </p>
       </div>
     </div>
   </div>
 
-  <!-- User Info Card -->
-  <div class="col-12 md:col-4">
-    <div class="glass-card h-full p-4 flex flex-column gap-4">
-      <div class="flex align-items-center gap-3">
-        <div class="w-4rem h-4rem border-circle bg-primary-100 flex align-items-center justify-content-center">
-          <i class="pi pi-user text-primary-600 text-2xl"></i>
-        </div>
-        <div>
-          <div class="text-xl font-bold text-900">User Profile</div>
-          <div class="text-secondary text-sm">Account Details</div>
-        </div>
-      </div>
-
-      <div *ngIf="authService.user() as user" class="flex flex-column gap-3 mt-2">
-        <div
-          class="flex justify-content-between align-items-center p-3 border-round bg-white-alpha-50 border-1 surface-border">
-          <span class="font-medium text-600">Email</span>
-          <span class="text-900 font-semibold text-sm">{{ user.email }}</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Welcome Card -->
-  <div class="col-12 md:col-8">
-    <div class="glass-card h-full p-5 relative overflow-hidden">
-      <!-- Decor circle in card -->
-      <div class="absolute top-0 right-0 w-15rem h-15rem border-circle bg-primary-50 opacity-50 blur-xl"
-        style="transform: translate(30%, -30%);"></div>
-
-      <div class="relative z-1 flex flex-column h-full justify-content-center">
-        <div class="text-3xl font-bold text-900 mb-3">Welcome to your Platform! 🎉</div>
-        <p class="line-height-3 text-700 text-lg mb-5" style="max-width: 600px;">
-          You are authenticated securely via AWS Cognito.
-        </p>
-
-        <div class="grid">
-          <div class="col-12 md:col-4">
-            <div class="p-3 border-round bg-white shadow-sm border-1 surface-border h-full">
-              <i class="pi pi-shield text-2xl text-primary mb-2"></i>
-              <div class="font-bold text-900 mb-1">Secure Access</div>
-              <div class="text-sm text-600">Enterprise-grade security</div>
-            </div>
-          </div>
-          <div class="col-12 md:col-4">
-            <div class="p-3 border-round bg-white shadow-sm border-1 surface-border h-full">
-              <i class="pi pi-bolt text-2xl text-primary mb-2"></i>
-              <div class="font-bold text-900 mb-1">Performance</div>
-              <div class="text-sm text-600">Optimized for scale</div>
-            </div>
+  <!-- Status Banner (Peace of Mind) -->
+  @if (statusMessage()) {
+    <div class="col-12 mb-4">
+      <div
+        class="buddy-status-card p-4 border-round-xl"
+        [ngClass]="statusSeverity() === 'teal' ? 'buddy-status-teal' : 'buddy-status-amber'"
+      >
+        <div class="flex align-items-center gap-3">
+          @if (statusSeverity() === 'teal') {
+            <i class="pi pi-check-circle text-4xl"></i>
+          } @else {
+            <i class="pi pi-exclamation-triangle text-4xl"></i>
+          }
+          <div>
+            <h2 class="text-2xl font-bold m-0">{{ statusMessage() }}</h2>
+            <p class="text-600 m-0 mt-1">
+              @if (statusSeverity() === 'teal') {
+                No ITC reversal or interest payable for the uploaded ledgers.
+              } @else {
+                Review the details below for ITC reversal and interest amounts.
+              }
+            </p>
           </div>
         </div>
       </div>
     </div>
-  </div>
+  }
 
-  <!-- Entries Management -->
-  <div class="col-12 mt-4">
-    <div class="glass-card p-0 overflow-hidden">
-      <p-table [value]="entries()" [lazy]="true" (onLazyLoad)="loadEntries($event)" [paginator]="true" [rows]="10"
-        [totalRecords]="totalRecords()" [loading]="loading()" styleClass="p-datatable-lg"
-        [tableStyle]="{'min-width': '50rem'}">
-
-        <ng-template pTemplate="caption">
-          <div class="p-4 flex align-items-center justify-content-between">
-            <div>
-              <div class="text-xl font-bold text-900">
-                My Data
-              </div>
-              <div class="text-secondary text-sm mt-1">
-                Manage your data entries
-              </div>
-            </div>
-            <p-button label="New Entry" icon="pi pi-plus" (click)="showCreateDialog()"
-              styleClass="p-button-primary shadow-2"></p-button>
-          </div>
-        </ng-template>
-
-        <ng-template pTemplate="header">
-          <tr>
-            <th>Key</th>
-            <th>Value</th>
-            <th>Created At</th>
-            <th style="width: 10rem">Actions</th>
-          </tr>
-        </ng-template>
-
-        <ng-template pTemplate="body" let-entry>
-          <tr class="transition-colors transition-duration-200">
-            <td class="font-semibold text-900">{{ entry.key }}</td>
-            <td class="text-700 font-mono text-sm bg-surface-50 border-round px-2 py-1 inline-block mt-2 md:mt-0">{{
-              entry.value }}</td>
-            <td class="text-600 text-sm">{{ entry.createdAt | date:'mediumDate' }}</td>
-            <td>
-              <div class="flex gap-2">
-                <button pButton icon="pi pi-pencil"
-                  class="p-button-rounded p-button-text p-button-secondary hover:surface-100" (click)="editEntry(entry)"
-                  pTooltip="Edit"></button>
-                <button pButton icon="pi pi-trash"
-                  class="p-button-rounded p-button-text p-button-danger hover:bg-red-50" (click)="deleteEntry(entry)"
-                  pTooltip="Delete"></button>
-              </div>
-            </td>
-          </tr>
-        </ng-template>
-
-        <ng-template pTemplate="emptymessage">
-          <tr>
-            <td colspan="5" class="text-center p-6">
-              <div class="flex flex-column align-items-center gap-3">
-                <div class="w-5rem h-5rem border-circle bg-surface-50 flex align-items-center justify-content-center">
-                  <i class="pi pi-folder-open text-4xl text-400"></i>
-                </div>
-                <div class="text-700 font-semibold text-lg">No entries found</div>
-                <div class="text-500">Create your first entry to get started</div>
-                <p-button label="Create Entry" icon="pi pi-plus" [text]="true" (click)="showCreateDialog()"></p-button>
-              </div>
-            </td>
-          </tr>
-        </ng-template>
-      </p-table>
+  <!-- Tabs: New Calculation / History -->
+  <div class="col-12">
+    <div class="flex gap-2 mb-4 border-bottom-1 surface-border pb-3">
+      <button
+        pButton
+        label="New Calculation"
+        icon="pi pi-file-edit"
+        [outlined]="activeTab() !== 'new'"
+        (click)="activeTab.set('new')"
+      ></button>
+      <button
+        pButton
+        label="Saved Calculations"
+        icon="pi pi-history"
+        [outlined]="activeTab() !== 'history'"
+        (click)="activeTab.set('history')"
+      ></button>
     </div>
+
+    @if (activeTab() === 'new') {
+      <div>
+        <!-- How it works -->
+        <div class="buddy-info-card mb-4 p-4">
+          <div class="flex align-items-start gap-3">
+            <i class="pi pi-info-circle text-2xl text-primary"></i>
+            <div class="text-sm text-700">
+              <p class="font-medium mb-1">How it works:</p>
+              <ul class="list-disc list-inside space-y-1 text-600">
+                <li>Upload one or multiple supplier ledgers from Tally or Busy in Excel format</li>
+                <li>The system parses Date, Debit (Payment), and Credit (Purchase) columns</li>
+                <li>Interest is calculated at 18% p.a. on ITC amount (18/118 of purchase value)</li>
+                <li>ITC reversal applies only to unpaid amounts beyond 180 days</li>
+                <li>Calculations are saved and available for 7 days</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- As on Date -->
+        <div class="surface-50 border-1 surface-border border-round p-4 mb-4">
+          <label class="block mb-2 font-medium text-800">As on Date</label>
+          <input
+            type="date"
+            pInputText
+            [ngModel]="asOnDate()"
+            (ngModelChange)="asOnDate.set($event)"
+            [disabled]="isProcessing()"
+            class="w-full"
+          />
+          <p class="text-sm text-500 mt-2 m-0">Set the date for calculating delays on unpaid amounts</p>
+        </div>
+
+        <!-- Document Upload -->
+        <div class="surface-50 border-1 surface-border border-round p-4 mb-4">
+          <app-document-upload
+            [disabled]="isProcessing()"
+            (filesSelected)="onFilesSelected($event)"
+          />
+          @if (fileNames().length > 0 && !error()) {
+            <div class="mt-3 text-sm text-green-600 font-medium text-center">
+              <p class="m-0">{{ fileNames().length }} file(s) uploaded</p>
+            </div>
+          }
+        </div>
+
+        <!-- Processing -->
+        @if (isProcessing()) {
+          <div class="flex justify-content-center py-8">
+            <div class="flex flex-column align-items-center gap-4">
+              <i class="pi pi-spin pi-spinner" style="font-size: 3rem;"></i>
+              <p class="text-600 font-medium m-0">Processing your file...</p>
+            </div>
+          </div>
+        }
+
+        <!-- Error -->
+        @if (error()) {
+          <p-message severity="warn" [text]="error()!" styleClass="w-full mb-4"></p-message>
+        }
+
+        <!-- Results -->
+        @if (results().length > 0 && !isProcessing()) {
+          <div class="mt-6 pt-6 border-top-1 surface-border">
+            <h2 class="text-2xl font-bold text-900 mb-4 flex align-items-center gap-2">
+              <i class="pi pi-calculator text-primary"></i>
+              Calculation Results
+            </h2>
+            <app-compliance-view
+              [results]="results()"
+              [runId]="runId()"
+              [showExportAll]="true"
+              (exportAll)="downloadExport()"
+              (exportLedger)="onExportLedger($event)"
+            />
+            <div class="buddy-success-card mt-4 p-4">
+              <p class="text-700 text-sm m-0">
+                <span class="font-semibold">Saved!</span> Your calculation has been saved and will be available in the History tab for 7 days.
+              </p>
+            </div>
+          </div>
+        }
+      </div>
+    } @else {
+      <app-calculation-history />
+    }
   </div>
 </div>
-
-<!-- Create/Edit Dialog -->
-<p-dialog [(visible)]="displayDialog" [header]="dialogHeader()" [modal]="true" [style]="{width: '450px'}"
-  styleClass="p-fluid glass-dialog" [draggable]="false" [resizable]="false" [maskStyleClass]="'backdrop-blur-sm'">
-
-  <ng-template pTemplate="content">
-    <form [formGroup]="entryForm" class="flex flex-column gap-4 mt-2">
-      <div *ngIf="error()" class="mb-2">
-        <p-message severity="error" [text]="error()!" styleClass="w-full"></p-message>
-      </div>
-
-      <div class="field">
-        <label for="key" class="font-semibold text-800 mb-2 block">Key Name</label>
-        <span class="p-input-icon-left w-full">
-          <i class="pi pi-tag text-500"></i>
-          <input pInputText id="key" formControlName="key" placeholder="e.g. API_KEY" class="w-full" />
-        </span>
-        <small class="text-500 block mt-1">Unique identifier for this entry</small>
-      </div>
-
-      <div class="field">
-        <label for="value" class="font-semibold text-800 mb-2 block">Value</label>
-        <span class="p-input-icon-left w-full">
-          <i class="pi pi-code text-500"></i>
-          <input pInputText id="value" formControlName="value" placeholder="e.g. sk-123456789" class="w-full" />
-        </span>
-        <small class="text-500 block mt-1">The secret value to store</small>
-      </div>
-    </form>
-  </ng-template>
-
-  <ng-template pTemplate="footer">
-    <div class="flex justify-content-end gap-2 pt-3 border-top-1 surface-border">
-      <p-button label="Cancel" [text]="true" (click)="displayDialog.set(false)" styleClass="text-600"></p-button>
-      <p-button label="Save Entry" icon="pi pi-check" (click)="saveEntry()" [loading]="saving()"
-        [disabled]="entryForm.invalid"></p-button>
-    </div>
-  </ng-template>
-</p-dialog>

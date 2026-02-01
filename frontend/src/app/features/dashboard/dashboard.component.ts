@@ -1,125 +1,128 @@
-import {Component, inject, OnInit, signal} from '@angular/core';
-import {CommonModule} from '@angular/common';
-import {FormBuilder, FormsModule, ReactiveFormsModule, Validators} from '@angular/forms';
-import {Router} from '@angular/router';
-import {AuthService} from '../../core/auth.service';
-import {Entry, EntryService} from '../../core/services/entry.service';
-import {CardModule} from 'primeng/card';
-import {TableModule} from 'primeng/table';
-import {ButtonModule} from 'primeng/button';
-import {DialogModule} from 'primeng/dialog';
-import {InputTextModule} from 'primeng/inputtext';
-import {MessageModule} from 'primeng/message';
-import {AvatarModule} from 'primeng/avatar';
-import {TagModule} from 'primeng/tag';
+import { Component, inject, signal, computed } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
+import { AuthService } from '../../core/auth.service';
+import { Rule37ApiService } from '../../core/services/rule37-api.service';
+import { DocumentUploadComponent } from '../rule37/document-upload/document-upload.component';
+import { ComplianceViewComponent } from '../rule37/compliance-view/compliance-view.component';
+import { CalculationHistoryComponent } from '../rule37/calculation-history/calculation-history.component';
+import { CardModule } from 'primeng/card';
+import { ButtonModule } from 'primeng/button';
+import { MessageModule } from 'primeng/message';
+import { InputTextModule } from 'primeng/inputtext';
+import { LedgerResult, UploadResult } from '../../shared/models/rule37.model';
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, ReactiveFormsModule,
-    CardModule, TableModule, ButtonModule, DialogModule, InputTextModule, MessageModule, TagModule, AvatarModule
+    CommonModule,
+    FormsModule,
+    CardModule,
+    ButtonModule,
+    MessageModule,
+    InputTextModule,
+    DocumentUploadComponent,
+    ComplianceViewComponent,
+    CalculationHistoryComponent,
   ],
   templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.scss']
+  styleUrls: ['./dashboard.component.scss'],
 })
-export class DashboardComponent implements OnInit {
+export class DashboardComponent {
   authService = inject(AuthService);
-  private entryService = inject(EntryService);
-  private fb = inject(FormBuilder);
-  private router = inject(Router);
+  private api = inject(Rule37ApiService);
 
-  entries = signal<Entry[]>([]);
-  totalRecords = signal(0);
-  loading = signal(false);
-
-  // Dialog state
-  displayDialog = signal(false);
-  dialogHeader = signal('New Entry');
-  saving = signal(false);
+  activeTab = signal<'new' | 'history'>('new');
+  asOnDate = signal<string>(new Date().toISOString().split('T')[0]);
+  results = signal<LedgerResult[]>([]);
+  runId = signal<number | null>(null);
+  isProcessing = signal(false);
   error = signal<string | null>(null);
+  fileNames = signal<string[]>([]);
 
-  entryForm = this.fb.group({
-    id: [''],
-    key: ['', Validators.required],
-    value: ['', Validators.required]
+  actionCount = computed(() => {
+    const r = this.results();
+    if (r.length === 0) return 0;
+    const totalItc = r.reduce((s, x) => s + x.summary.totalItcReversal, 0);
+    const totalInterest = r.reduce((s, x) => s + x.summary.totalInterest, 0);
+    return totalItc > 0 || totalInterest > 0 ? 1 : 0;
   });
 
-  ngOnInit() {
-    this.loadEntries();
+  statusMessage = computed(() => {
+    const n = this.actionCount();
+    if (n === 0 && this.results().length > 0) return 'You are all clear';
+    if (n === 0) return '';
+    if (n === 1) return '1 Action Pending';
+    return `${n} Actions Pending`;
+  });
 
-  }
+  statusSeverity = computed(() => {
+    const n = this.actionCount();
+    if (n === 0) return 'teal';
+    return 'amber';
+  });
 
+  onFilesSelected(files: File[]) {
+    this.isProcessing.set(true);
+    this.error.set(null);
+    this.results.set([]);
+    this.fileNames.set(files.map((f) => f.name));
 
-  loadEntries(event?: any) {
-    this.loading.set(true);
-    const page = event ? event.first / event.rows : 0;
-    const size = event ? event.rows : 10;
-
-    this.entryService.getEntries(page, size).subscribe({
-      next: (pageData) => {
-        this.entries.set(pageData.content);
-        this.totalRecords.set(pageData.totalElements);
-        this.loading.set(false);
+    this.api.uploadLedgers(files, this.asOnDate()).subscribe({
+      next: (res: UploadResult) => {
+        this.runId.set(res.runId);
+        this.results.set(
+          res.results.map((r) => ({
+            ledgerName: r.ledgerName,
+            summary: {
+              totalInterest: r.summary.totalInterest,
+              totalItcReversal: r.summary.totalItcReversal,
+              details: r.summary.details.map((d) => ({
+                ...d,
+                purchaseDate: d.purchaseDate ?? '',
+                paymentDate: d.paymentDate ?? null,
+              })),
+            },
+          }))
+        );
+        this.fileNames.set(res.results.map((r) => r.ledgerName));
+        if (res.errors.length > 0) {
+          this.error.set(res.errors.map((e) => `${e.filename}: ${e.message}`).join('; '));
+        }
+        this.isProcessing.set(false);
       },
       error: (err) => {
-        console.error('Failed to load entries', err);
-        this.loading.set(false);
-      }
+        this.error.set(err?.message || 'Failed to process files');
+        this.fileNames.set([]);
+        this.isProcessing.set(false);
+      },
     });
   }
 
-  showCreateDialog() {
-    this.dialogHeader.set('New Entry');
-    this.entryForm.reset();
-    this.displayDialog.set(true);
-    this.error.set(null);
-  }
-
-  editEntry(entry: Entry) {
-    this.dialogHeader.set('Edit Entry');
-    this.entryForm.patchValue(entry);
-    this.displayDialog.set(true);
-    this.error.set(null);
-  }
-
-  deleteEntry(entry: Entry) {
-    if (!confirm('Are you sure you want to delete this entry?')) return;
-
-    this.loading.set(true);
-    this.entryService.deleteEntry(entry.id).subscribe({
-      next: () => {
-        this.loadEntries();
+  downloadExport() {
+    const id = this.runId();
+    const r = this.results();
+    if (!id || r.length === 0) return;
+    const filename = r.length === 1 ? r[0].ledgerName : `${r.length} files`;
+    this.api.exportRun(id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename + '_Interest_Calculation.xlsx';
+        a.click();
+        URL.revokeObjectURL(url);
       },
-      error: (err) => {
-        alert('Failed to delete entry: ' + (err.error?.message || err.message));
-        this.loading.set(false);
-      }
+      error: (err) => alert('Export failed: ' + (err?.message || 'Unknown error')),
     });
   }
 
-  saveEntry() {
-    if (this.entryForm.invalid) return;
+  onExportLedger(ev: { ledgerName: string; summary: LedgerResult['summary'] }) {
+    this.downloadExport();
+  }
 
-    this.saving.set(true);
-    this.error.set(null);
-    const formValue = this.entryForm.value;
-
-    const request = formValue.id
-      ? this.entryService.updateEntry(formValue.id, { key: formValue.key!, value: formValue.value! })
-      : this.entryService.createEntry({ key: formValue.key!, value: formValue.value! });
-
-    request.subscribe({
-      next: () => {
-        this.displayDialog.set(false);
-        this.saving.set(false);
-        this.loadEntries();
-      },
-      error: (err) => {
-        this.error.set(err.error?.message || 'Failed to save entry');
-        this.saving.set(false);
-      }
-    });
+  switchToHistory() {
+    this.activeTab.set('history');
   }
 }
-

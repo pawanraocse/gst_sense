@@ -1,0 +1,169 @@
+package com.learning.backendservice.service;
+
+import com.learning.backendservice.config.UploadProperties;
+import com.learning.backendservice.domain.ledger.LedgerFileProcessor;
+import com.learning.backendservice.domain.rule37.LedgerResult;
+import com.learning.backendservice.dto.UploadResult;
+import com.learning.backendservice.entity.Rule37CalculationRun;
+import com.learning.backendservice.exception.LedgerParseException;
+import com.learning.backendservice.repository.Rule37RunRepository;
+import com.learning.common.tenant.TenantContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.util.unit.DataSize;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.OffsetDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+/**
+ * Multi-file ledger upload orchestrator. OOM-safe: processes files sequentially.
+ */
+@Service
+public class LedgerUploadOrchestrator {
+
+    private static final Logger log = LoggerFactory.getLogger(LedgerUploadOrchestrator.class);
+
+    private final LedgerFileProcessor ledgerFileProcessor;
+    private final Rule37RunRepository runRepository;
+    private final UploadProperties uploadProperties;
+    private final int retentionDays;
+
+    public LedgerUploadOrchestrator(LedgerFileProcessor ledgerFileProcessor,
+                                    Rule37RunRepository runRepository,
+                                    UploadProperties uploadProperties,
+                                    @Value("${app.retention.days:7}") int retentionDays) {
+        this.ledgerFileProcessor = ledgerFileProcessor;
+        this.runRepository = runRepository;
+        this.uploadProperties = uploadProperties;
+        this.retentionDays = retentionDays;
+    }
+
+    public UploadResult processUpload(List<MultipartFile> files, java.time.LocalDate asOnDate, String createdBy) {
+        validateRequest(files);
+
+        List<LedgerResult> results = new ArrayList<>();
+        List<UploadResult.FileUploadError> errors = new ArrayList<>();
+        DataSize maxSize = uploadProperties.getMaxFileSize();
+
+        for (MultipartFile file : files) {
+            if (file.isEmpty()) {
+                errors.add(UploadResult.FileUploadError.builder()
+                        .filename(file.getOriginalFilename())
+                        .message("File is empty")
+                        .build());
+                continue;
+            }
+            if (file.getSize() > maxSize.toBytes()) {
+                errors.add(UploadResult.FileUploadError.builder()
+                        .filename(file.getOriginalFilename())
+                        .message("File exceeds max size " + maxSize)
+                        .build());
+                continue;
+            }
+
+            try {
+                LedgerResult result = ledgerFileProcessor.process(file.getInputStream(), file.getOriginalFilename(), asOnDate);
+                results.add(result);
+            } catch (LedgerParseException e) {
+                log.warn("Parse error for {}: {}", file.getOriginalFilename(), e.getMessage());
+                errors.add(UploadResult.FileUploadError.builder()
+                        .filename(file.getOriginalFilename())
+                        .message(e.getMessage())
+                        .build());
+            } catch (Exception e) {
+                log.warn("Processing error for {}: {}", file.getOriginalFilename(), e.getMessage());
+                errors.add(UploadResult.FileUploadError.builder()
+                        .filename(file.getOriginalFilename())
+                        .message("Processing failed: " + e.getMessage())
+                        .build());
+            }
+        }
+
+        if (results.isEmpty()) {
+            throw new IllegalArgumentException("All files failed. " + errors.stream()
+                    .map(e -> e.getFilename() + ": " + e.getMessage())
+                    .collect(Collectors.joining("; ")));
+        }
+
+        double totalInterest = results.stream()
+                .mapToDouble(r -> r.getSummary().getTotalInterest())
+                .sum();
+        double totalItcReversal = results.stream()
+                .mapToDouble(r -> r.getSummary().getTotalItcReversal())
+                .sum();
+
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime expiresAt = now.plus(retentionDays, ChronoUnit.DAYS);
+        String filename = results.size() == 1
+                ? results.get(0).getLedgerName()
+                : results.size() + " files - " + asOnDate;
+
+        Rule37CalculationRun run = Rule37CalculationRun.builder()
+                .tenantId(TenantContext.getCurrentTenant())
+                .filename(filename)
+                .asOnDate(asOnDate)
+                .totalInterest(java.math.BigDecimal.valueOf(totalInterest))
+                .totalItcReversal(java.math.BigDecimal.valueOf(totalItcReversal))
+                .calculationData(results)
+                .createdAt(now)
+                .createdBy(createdBy)
+                .expiresAt(expiresAt)
+                .build();
+
+        run = runRepository.save(run);
+
+        List<UploadResult.LedgerResultDto> resultDtos = results.stream()
+                .map(r -> UploadResult.LedgerResultDto.builder()
+                        .ledgerName(r.getLedgerName())
+                        .summary(toSummaryDto(r.getSummary()))
+                        .build())
+                .toList();
+
+        return UploadResult.builder()
+                .runId(run.getId())
+                .filename(run.getFilename())
+                .results(resultDtos)
+                .errors(errors)
+                .build();
+    }
+
+    private void validateRequest(List<MultipartFile> files) {
+        if (files == null || files.isEmpty()) {
+            throw new IllegalArgumentException("No files provided");
+        }
+        if (files.size() > uploadProperties.getMaxFiles()) {
+            throw new IllegalArgumentException("Too many files. Max: " + uploadProperties.getMaxFiles());
+        }
+    }
+
+    private static UploadResult.CalculationSummaryDto toSummaryDto(com.learning.backendservice.domain.rule37.CalculationSummary s) {
+        return UploadResult.CalculationSummaryDto.builder()
+                .totalInterest(s.getTotalInterest())
+                .totalItcReversal(s.getTotalItcReversal())
+                .details(s.getDetails().stream()
+                        .map(r -> UploadResult.InterestRowDto.builder()
+                                .supplier(r.getSupplier())
+                                .purchaseDate(r.getPurchaseDate() != null ? r.getPurchaseDate().toString() : null)
+                                .paymentDate(r.getPaymentDate() != null ? r.getPaymentDate().toString() : "Unpaid")
+                                .principal(r.getPrincipal())
+                                .delayDays(r.getDelayDays())
+                                .itcAmount(r.getItcAmount())
+                                .interest(r.getInterest())
+                                .status(r.getStatus().name())
+                                .build())
+                        .toList())
+                .build();
+    }
+
+    private static String getFileNameWithoutExtension(String filename) {
+        if (filename == null) return "Unknown";
+        int dot = filename.lastIndexOf('.');
+        return dot > 0 ? filename.substring(0, dot) : filename;
+    }
+}

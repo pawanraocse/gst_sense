@@ -12,7 +12,8 @@ import org.springframework.context.annotation.ComponentScan;
 @ComponentScan(basePackages = {
         "com.learning.backendservice",
         "com.learning.common.infra.jwt", // Keep JWT support
-        "com.learning.common.infra.filters"
+        "com.learning.common.infra.filters",
+        "com.learning.common.infra.tenant"  // TenantFilter, TenantAuditingListener
 })
 public class BackendServiceApplication {
 

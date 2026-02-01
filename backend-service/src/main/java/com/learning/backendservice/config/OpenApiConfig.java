@@ -1,12 +1,15 @@
 package com.learning.backendservice.config;
 
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
+import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
+import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,6 +17,21 @@ import java.util.List;
 
 @Configuration
 public class OpenApiConfig {
+
+    @Bean
+    public OpenApiCustomizer errorResponseSchemaCustomizer() {
+        Schema<?> errorResponseSchema = new Schema<>()
+                .name("ErrorResponse")
+                .addProperty("timestamp", new Schema<>().type("string").format("date-time"))
+                .addProperty("status", new Schema<>().type("integer"))
+                .addProperty("code", new Schema<>().type("string"))
+                .addProperty("message", new Schema<>().type("string"))
+                .addProperty("requestId", new Schema<>().type("string"))
+                .addProperty("path", new Schema<>().type("string"));
+
+        return openApi -> openApi.getComponents()
+                .addSchemas("ErrorResponse", errorResponseSchema);
+    }
 
     @Bean
     public OpenAPI customOpenAPI() {
@@ -33,7 +51,7 @@ public class OpenApiConfig {
                         new Server().url("http://localhost:8082").description("Direct (Dev)")
                 ))
                 .addSecurityItem(new SecurityRequirement().addList("Bearer Authentication"))
-                .components(new io.swagger.v3.oas.models.Components()
+                .components(new Components()
                         .addSecuritySchemes("Bearer Authentication",
                                 new SecurityScheme()
                                         .type(SecurityScheme.Type.HTTP)

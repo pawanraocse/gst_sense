@@ -150,6 +150,17 @@ graph TD
 
 ---
 
+## Backend Service — Phase 1 (Rule 37)
+
+| Property | Default | Description |
+|----------|---------|-------------|
+| `app.retention.days` | 7 | Calculation run retention; expired runs deleted by `RetentionScheduler` |
+| `app.upload.max-file-size` | 10MB | Max ledger Excel size per file (OOM prevention) |
+| `app.upload.max-files` | 20 | Max files per multi-file upload (OOM prevention) |
+| `APP_RETENTION_DAYS` | (env) | Override retention days (e.g. `365` for production) |
+
+---
+
 ## Environment Variables
 
 ### Required for Local Development

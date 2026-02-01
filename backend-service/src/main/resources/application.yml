@@ -1,7 +1,7 @@
 spring:
   application:
     name: backend-service
-  
+
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/${POSTGRES_DB_NAME:gst-buddy}}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
@@ -119,6 +119,14 @@ management:
   otlp:
     tracing:
       endpoint: ${OTEL_EXPORTER_OTLP_ENDPOINT:http://localhost:4318/v1/traces}
+
+# Phase 1: Rule 37 configuration
+app:
+  retention:
+    days: ${APP_RETENTION_DAYS:7}  # Calculation run retention; default 1 week
+  upload:
+    max-file-size: 10MB             # Max ledger Excel size per file
+    max-files: 20                   # Max files per multi-file upload (OOM prevention)
 
 # OpenAPI Documentation
 

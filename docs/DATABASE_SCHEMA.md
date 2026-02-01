@@ -6,7 +6,7 @@ The application uses a **Shared Database** pattern with a **Multi-Tenant** relat
 | Service | Database | Description |
 |---------|----------|-------------|
 | **Auth Service** | `gst-buddy` (schema: `public`) | User identities, roles, and permissions (if persisting locally) |
-| **Backend Service** | `backendgst_buddy` (or shared `gst-buddy`) | Business data (Entries) |
+| **Backend Service** | `backendgst_buddy` (or shared `gst-buddy`) | Business data (Rule 37 calculation runs) |
 
 > **Note:** For the "Lite" template, both services typically share the same PostgreSQL instance and can share the same database (`gst-buddy`) for simplicity, but strictly separate tables.
 
@@ -49,18 +49,23 @@ Maps users to roles.
 ## 2. Backend Service Schema
 Stores business domain data.
 
-### `entries`
-A sample resource entity.
+### `rule37_calculation_runs` (Phase 1)
+Rule 37 (180-day ITC reversal) calculation runs from ledger uploads.
 
 | Column | Type | Description |
 |--------|------|-------------|
 | `id` | BIGSERIAL | **PK** |
 | `tenant_id` | VARCHAR(64) | **Discriminator** |
-| `entry_key` | VARCHAR(255) | Unique key |
-| `entry_value` | TEXT | Value content |
-| `created_by` | VARCHAR(255) | User ID who created it |
+| `filename` | VARCHAR(255) | Original ledger filename |
+| `as_on_date` | DATE | Calculation as-on date |
+| `total_interest` | DECIMAL(15,2) | Total interest payable |
+| `total_itc_reversal` | DECIMAL(15,2) | Total ITC reversal |
+| `calculation_data` | JSONB | LedgerResult[] — full calculation details |
 | `created_at` | TIMESTAMPTZ | Creation timestamp |
-| `updated_at` | TIMESTAMPTZ | Last update timestamp |
+| `created_by` | VARCHAR(255) | User ID (X-User-Id) who uploaded |
+| `expires_at` | TIMESTAMPTZ | Retention expiry (default: created_at + 7 days) |
+
+**Retention:** Configurable via `app.retention.days` (default 7). `RetentionScheduler` deletes expired runs.
 
 ## Entity Relationship Diagram
 
@@ -75,9 +80,11 @@ erDiagram
         string status
     }
     
-    entries {
+    rule37_calculation_runs {
         bigint id PK
-        string entry_key 
+        string tenant_id
+        string filename
+        date as_on_date
         string created_by
     }
 ```

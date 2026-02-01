@@ -123,12 +123,14 @@ In `gateway-service/application.yml`:
 
 ## 🧪 How to Build Your Service
 
-### 1. Replace Domain Entities
-Delete the example `Entry` entity and create your own.
+### 1. Domain Entities
+The Backend Service exposes Rule 37 APIs (`/api/v1/ledgers/upload`, `/api/v1/rule37/runs`). See [IMPLEMENTATION_PLAN.md](../IMPLEMENTATION_PLAN.md) and [PHASE1_LLD.md](PHASE1_LLD.md) for design.
+
+To add your own domain (e.g. orders):
 
 ```java
 @Entity
-@Table(name = "orders")  // Your domain table
+@Table(name = "orders")
 public class Order {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
