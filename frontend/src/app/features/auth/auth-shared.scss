@@ -20,6 +20,21 @@
     box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
+.back-to-home {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    text-decoration: none;
+    margin-bottom: 1.5rem;
+    transition: color 0.2s;
+
+    &:hover {
+        color: var(--primary-600);
+    }
+}
+
 .auth-header {
     text-align: center;
     margin-bottom: 2rem;

@@ -1,0 +1,357 @@
+<!-- Landing Page - GST Buddy -->
+<div class="landing-page">
+    <!-- A. Sticky Glass Navbar -->
+    <header class="landing-nav" [class.scrolled]="isScrolled()">
+        <div class="nav-container">
+            <!-- Logo -->
+            <a routerLink="/" class="logo">
+                <i class="pi pi-calculator"></i>
+                <span>GST Buddy</span>
+            </a>
+
+            <!-- Desktop Navigation -->
+            <nav class="nav-links desktop-only">
+                <a (click)="scrollTo('hero')">Home</a>
+                <a (click)="scrollTo('rules')">GST Rules</a>
+                <a (click)="scrollTo('features')">Features</a>
+                <a (click)="scrollTo('how-it-works')">How It Works</a>
+                <a (click)="scrollTo('faq')">FAQ</a>
+            </nav>
+
+            <!-- CTA Button -->
+            <div class="nav-actions">
+                <a routerLink="/auth/login" class="desktop-only">
+                    <p-button label="Login" styleClass="p-button-primary"></p-button>
+                </a>
+                <!-- Mobile Menu Toggle -->
+                <button class="mobile-menu-toggle mobile-only" (click)="toggleMobileMenu()">
+                    <i class="pi" [class.pi-bars]="!mobileMenuOpen()" [class.pi-times]="mobileMenuOpen()"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Mobile Menu -->
+        @if (mobileMenuOpen()) {
+        <nav class="mobile-menu">
+            <a (click)="scrollTo('hero')">Home</a>
+            <a (click)="scrollTo('rules')">GST Rules</a>
+            <a (click)="scrollTo('features')">Features</a>
+            <a (click)="scrollTo('how-it-works')">How It Works</a>
+            <a (click)="scrollTo('faq')">FAQ</a>
+            <a routerLink="/auth/login">
+                <p-button label="Login" styleClass="w-full p-button-primary"></p-button>
+            </a>
+        </nav>
+        }
+    </header>
+
+    <!-- Main Content -->
+    <main>
+        <!-- B. Hero Section - Modern & Impactful -->
+        <section id="hero" class="hero-section">
+            <div class="hero-bg-effects">
+                <div class="gradient-orb orb-1"></div>
+                <div class="gradient-orb orb-2"></div>
+                <div class="gradient-orb orb-3"></div>
+            </div>
+
+            <div class="hero-container">
+                <div class="hero-content">
+                    <!-- Trust Badge -->
+                    <div class="hero-badges">
+                        <span class="trust-badge">
+                            <i class="pi pi-shield"></i>
+                            Made for CA Firms & Businesses
+                        </span>
+                        <span class="trust-badge highlight">
+                            <i class="pi pi-bolt"></i>
+                            6+ Rules Covered
+                        </span>
+                    </div>
+
+                    <!-- Headline -->
+                    <h1 class="hero-title">
+                        All Your GST Compliance,<br>
+                        <span class="gradient-text">One Intelligent Platform.</span>
+                    </h1>
+
+                    <!-- Subhead -->
+                    <p class="hero-subtitle">
+                        Stop juggling fragmented tools. Upload once — get compliance status for
+                        <strong>Rule 37, 36(4), 86B, 16(4), GSTR-9</strong> and more.
+                        Designed for accountants who value their time.
+                    </p>
+
+                    <!-- CTAs -->
+                    <div class="hero-ctas">
+                        <a routerLink="/auth/signup/personal">
+                            <p-button label="Start Free Trial" icon="pi pi-arrow-right" iconPos="right"
+                                styleClass="p-button-lg cta-primary"></p-button>
+                        </a>
+                        <p-button label="See Demo" icon="pi pi-play"
+                            styleClass="p-button-lg p-button-outlined cta-secondary"></p-button>
+                    </div>
+
+                    <!-- Trust Signals -->
+                    <div class="trust-signals">
+                        <div class="signal">
+                            <i class="pi pi-check-circle"></i>
+                            <span>No credit card required</span>
+                        </div>
+                        <div class="signal">
+                            <i class="pi pi-check-circle"></i>
+                            <span>Works with Tally & Busy</span>
+                        </div>
+                        <div class="signal">
+                            <i class="pi pi-check-circle"></i>
+                            <span>5 free compliance checks</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Hero Visual - Stats Card -->
+                <div class="hero-visual">
+                    <div class="dashboard-preview glass-card">
+                        <div class="preview-header">
+                            <span class="status-dot green"></span>
+                            <span>Compliance Dashboard</span>
+                        </div>
+                        <div class="preview-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Rule 37</span>
+                                <span class="stat-value green">✓ All Clear</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Rule 36(4)</span>
+                                <span class="stat-value green">✓ Matched</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Rule 86B</span>
+                                <span class="stat-value green">✓ Under Limit</span>
+                            </div>
+                            <div class="stat-item alert">
+                                <span class="stat-label">GSTR-3B Check</span>
+                                <span class="stat-value amber">⚠ 2 Non-Filers</span>
+                            </div>
+                        </div>
+                        <div class="preview-footer">
+                            <span>Last updated: Just now</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- C. GST Rules Section - NEW -->
+        <section id="rules" class="rules-section">
+            <div class="section-container">
+                <div class="section-header">
+                    <span class="section-label">Complete Coverage</span>
+                    <h2>All Major GST Rules, <span class="gradient-text">Automated</span></h2>
+                    <p>From ITC reversals to vendor compliance — we handle the complexity so you don't have to.</p>
+                </div>
+
+                <div class="rules-grid">
+                    @for (rule of gstRules; track rule.rule) {
+                    <div class="rule-card glass-card">
+                        <div class="rule-header">
+                            <div class="rule-icon">
+                                <img [src]="rule.image" [alt]="rule.title" loading="lazy">
+                            </div>
+                            <span class="rule-badge">{{ rule.rule }}</span>
+                        </div>
+                        <h3>{{ rule.title }}</h3>
+                        <p>{{ rule.description }}</p>
+                    </div>
+                    }
+                </div>
+
+                <div class="rules-cta">
+                    <p>And we're constantly adding more rules as CBIC releases new notifications.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- D. Features Section - Platform Benefits -->
+        <section id="features" class="features-section">
+            <div class="section-container">
+                <div class="section-header">
+                    <span class="section-label">Why GST Buddy</span>
+                    <h2>Stop Wasting Time on <span class="gradient-text">Fragmented Tools</span></h2>
+                    <p>One upload. All rules. Zero headaches.</p>
+                </div>
+
+                <div class="features-grid">
+                    @for (feature of features; track feature.title) {
+                    <div class="feature-card glass-card">
+                        <div class="feature-icon-wrapper">
+                            <div class="feature-icon">
+                                <img [src]="feature.image" [alt]="feature.title" loading="lazy">
+                            </div>
+                        </div>
+                        <h3>{{ feature.title }}</h3>
+                        <p>{{ feature.description }}</p>
+                    </div>
+                    }
+                </div>
+            </div>
+        </section>
+
+        <!-- E. Comparison Section - NEW -->
+        <section id="comparison" class="comparison-section">
+            <div class="section-container">
+                <div class="section-header light">
+                    <span class="section-label">The Difference</span>
+                    <h2>GST Buddy vs. Other Tools</h2>
+                    <p>See why businesses are switching to a unified solution.</p>
+                </div>
+
+                <div class="comparison-table-wrapper">
+                    <table class="comparison-table">
+                        <thead>
+                            <tr>
+                                <th>Feature</th>
+                                <th class="highlight">GST Buddy</th>
+                                <th>Other Tools</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (item of comparisons; track item.feature) {
+                            <tr>
+                                <td>{{ item.feature }}</td>
+                                <td class="highlight">
+                                    @if (item.us) {
+                                    <i class="pi pi-check-circle green"></i>
+                                    } @else {
+                                    <i class="pi pi-times-circle red"></i>
+                                    }
+                                </td>
+                                <td>
+                                    @if (item.others) {
+                                    <i class="pi pi-check-circle green"></i>
+                                    } @else {
+                                    <i class="pi pi-times-circle red"></i>
+                                    }
+                                </td>
+                            </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- F. How It Works Section -->
+        <section id="how-it-works" class="how-it-works-section">
+            <div class="section-container">
+                <div class="section-header">
+                    <span class="section-label">Simple Process</span>
+                    <h2>Get Started in <span class="gradient-text">3 Minutes</span></h2>
+                    <p>From data upload to compliance report — faster than making chai.</p>
+                </div>
+
+                <div class="steps-container">
+                    @for (step of steps; track step.number) {
+                    <div class="step-card">
+                        <div class="step-number">{{ step.number }}</div>
+                        <div class="step-content">
+                            <div class="step-icon">
+                                <i class="pi" [class]="step.icon"></i>
+                            </div>
+                            <h3>{{ step.title }}</h3>
+                            <p>{{ step.description }}</p>
+                        </div>
+                    </div>
+                    }
+                </div>
+            </div>
+        </section>
+
+        <!-- G. FAQ Section -->
+        <section id="faq" class="faq-section">
+            <div class="section-container">
+                <div class="section-header">
+                    <span class="section-label">Questions</span>
+                    <h2>Frequently Asked Questions</h2>
+                    <p>Still have doubts? We've got answers.</p>
+                </div>
+
+                <div class="faq-container">
+                    <p-accordion [multiple]="true">
+                        @for (faq of faqs; track faq.question; let i = $index) {
+                        <p-accordion-panel [value]="i">
+                            <p-accordion-header>{{ faq.question }}</p-accordion-header>
+                            <p-accordion-content>
+                                <p>{{ faq.answer }}</p>
+                            </p-accordion-content>
+                        </p-accordion-panel>
+                        }
+                    </p-accordion>
+                </div>
+            </div>
+        </section>
+
+        <!-- H. CTA Banner - Final Push -->
+        <section class="cta-banner">
+            <div class="cta-content">
+                <h2>Ready to Simplify Your GST Compliance?</h2>
+                <p>Join hundreds of CA firms and businesses who trust GST Buddy.</p>
+                <div class="cta-actions">
+                    <a routerLink="/auth/signup/personal">
+                        <p-button label="Start Your Free Trial" icon="pi pi-arrow-right" iconPos="right"
+                            styleClass="p-button-lg cta-banner-btn"></p-button>
+                    </a>
+                    <span class="cta-note">No credit card · 5 free checks · Setup in 2 minutes</span>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- I. Footer -->
+    <footer class="landing-footer">
+        <div class="footer-container">
+            <div class="footer-grid">
+                <!-- Brand -->
+                <div class="footer-brand">
+                    <a routerLink="/" class="logo">
+                        <i class="pi pi-calculator"></i>
+                        <span>GST Buddy</span>
+                    </a>
+                    <p>Your friendly AI companion for GST compliance. Because tax shouldn't be scary.</p>
+                </div>
+
+                <!-- Product -->
+                <div class="footer-links">
+                    <h4>Product</h4>
+                    <a (click)="scrollTo('rules')">GST Rules</a>
+                    <a (click)="scrollTo('features')">Features</a>
+                    <a (click)="scrollTo('comparison')">Comparison</a>
+                    <a href="#">Pricing</a>
+                </div>
+
+                <!-- Legal -->
+                <div class="footer-links">
+                    <h4>Legal</h4>
+                    <a href="#">Privacy Policy</a>
+                    <a href="#">Terms of Service</a>
+                    <a href="#">Refund Policy</a>
+                </div>
+
+                <!-- Contact -->
+                <div class="footer-links">
+                    <h4>Contact</h4>
+                    <a href="mailto:support@gstbuddy.in">support&#64;gstbuddy.in</a>
+                    <div class="social-links">
+                        <a href="#" aria-label="LinkedIn"><i class="pi pi-linkedin"></i></a>
+                        <a href="#" aria-label="Twitter"><i class="pi pi-twitter"></i></a>
+                        <a href="#" aria-label="YouTube"><i class="pi pi-youtube"></i></a>
+                    </div>
+                </div>
+            </div>
+
+            <div class="footer-bottom">
+                <p>© 2026 GST Buddy. Made with ❤️ in India for Indian Businesses.</p>
+            </div>
+        </div>
+    </footer>
+</div>

@@ -48,6 +48,9 @@ export const routes: Routes = [
     path: 'auth/callback',
     loadComponent: () => import('./features/auth/callback.component').then(m => m.AuthCallbackComponent)
   },
-  { path: '', redirectTo: 'app', pathMatch: 'full' },
-  { path: '**', redirectTo: 'app' }
+  {
+    path: '',
+    loadComponent: () => import('./features/landing/landing.component').then(m => m.LandingComponent)
+  },
+  { path: '**', redirectTo: '' }
 ];
