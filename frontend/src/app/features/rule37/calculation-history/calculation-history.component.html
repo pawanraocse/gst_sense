@@ -43,7 +43,11 @@
                 </div>
                 <div class="card-content">
                     <div class="card-title">
-                        {{ run.calculationData.length }} {{ run.calculationData.length === 1 ? 'Ledger' : 'Ledgers' }}
+                        @if (run.calculationData.length === 1) {
+                        {{ run.calculationData[0].ledgerName }}
+                        } @else {
+                        {{ run.calculationData[0].ledgerName }} +{{ run.calculationData.length - 1 }} more
+                        }
                     </div>
                     <div class="card-meta">
                         <span class="meta-date">{{ formatDate(run.createdAt) }}</span>

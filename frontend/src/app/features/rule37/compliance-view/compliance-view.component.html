@@ -1,91 +1,220 @@
 <div class="compliance-view">
-    <!-- Summary Header -->
-    <div class="summary-header">
-        <div class="summary-totals">
-            <div class="summary-item">
-                <span class="summary-label">Total ITC Reversal:</span>
-                <span class="summary-value text-warning">{{ formatCurrency(totalItcReversal) }}</span>
+    <!-- ═══════════════════════════════════════════════════════════════════════════
+         🎯 EXECUTIVE SUMMARY - KPI Hero Cards
+         Premium glassmorphic cards with at-a-glance metrics
+    ═══════════════════════════════════════════════════════════════════════════ -->
+    <section class="executive-summary">
+        <div class="kpi-grid">
+            <!-- Total Liability Card -->
+            <div class="kpi-card liability">
+                <div class="kpi-icon">
+                    <i class="pi pi-wallet"></i>
+                </div>
+                <div class="kpi-content">
+                    <span class="kpi-label">Total Liability</span>
+                    <span class="kpi-value">{{ formatCurrency(totalItcReversal + totalInterest) }}</span>
+                    <span class="kpi-breakdown">
+                        ITC: {{ formatCurrency(totalItcReversal) }} + Interest: {{ formatCurrency(totalInterest) }}
+                    </span>
+                </div>
+                <div class="kpi-trend negative">
+                    <i class="pi pi-arrow-up"></i>
+                </div>
             </div>
-            <div class="summary-item">
-                <span class="summary-label">Total Interest:</span>
-                <span class="summary-value text-error">{{ formatCurrency(totalInterest) }}</span>
+
+            <!-- ITC Reversal Card -->
+            <div class="kpi-card reversal">
+                <div class="kpi-icon">
+                    <i class="pi pi-replay"></i>
+                </div>
+                <div class="kpi-content">
+                    <span class="kpi-label">ITC Reversal</span>
+                    <span class="kpi-value">{{ formatCurrency(totalItcReversal) }}</span>
+                    <span class="kpi-breakdown">Add back in GSTR-3B</span>
+                </div>
+            </div>
+
+            <!-- Interest Due Card -->
+            <div class="kpi-card interest">
+                <div class="kpi-icon">
+                    <i class="pi pi-percentage"></i>
+                </div>
+                <div class="kpi-content">
+                    <span class="kpi-label">Interest &#64; 18%</span>
+                    <span class="kpi-value">{{ formatCurrency(totalInterest) }}</span>
+                    <span class="kpi-breakdown">Section 50, CGST Act</span>
+                </div>
+            </div>
+
+            <!-- Risk Summary Card -->
+            <div class="kpi-card risk">
+                <div class="kpi-content">
+                    <span class="kpi-label">Risk Summary</span>
+                    <div class="risk-indicators">
+                        <div class="risk-item breached">
+                            <span class="risk-count">{{ getBreachedCount() }}</span>
+                            <span class="risk-text">Breached</span>
+                        </div>
+                        <div class="risk-item at-risk">
+                            <span class="risk-count">{{ getAtRiskCount() }}</span>
+                            <span class="risk-text">At Risk</span>
+                        </div>
+                        <div class="risk-item safe">
+                            <span class="risk-count">{{ getSafeCount() }}</span>
+                            <span class="risk-text">Safe</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Risk Donut Visualization -->
+                <div class="risk-donut">
+                    <svg viewBox="0 0 36 36" class="donut-chart">
+                        <circle cx="18" cy="18" r="15.915" class="donut-ring" />
+                        <circle cx="18" cy="18" r="15.915" class="donut-segment breached"
+                            [attr.stroke-dasharray]="getDonutSegment('breached')" stroke-dashoffset="25" />
+                        <circle cx="18" cy="18" r="15.915" class="donut-segment at-risk"
+                            [attr.stroke-dasharray]="getDonutSegment('at-risk')"
+                            [attr.stroke-dashoffset]="getDonutOffset('at-risk')" />
+                    </svg>
+                </div>
             </div>
         </div>
 
+        <!-- Export CTA -->
         @if (showExportAll() && results().length > 0) {
-        <button pButton label="Export All" icon="pi pi-download" class="p-button-outlined"
-            (click)="exportAll.emit()"></button>
+        <button pButton class="export-btn" (click)="exportAll.emit()">
+            <i class="pi pi-download"></i>
+            <span>Export Report</span>
+        </button>
         }
-    </div>
+    </section>
 
-    <!-- Ledger Results -->
-    @for (ledger of results(); track ledger.ledgerName) {
-    <div class="ledger-card">
-        <div class="ledger-header">
-            <div class="ledger-info">
-                <i class="pi pi-file-excel"></i>
-                <span class="ledger-name">{{ ledger.ledgerName }}</span>
-            </div>
-            <div class="ledger-summary">
-                <span class="ledger-stat">
-                    <span class="stat-label">ITC Reversal:</span>
-                    <span class="stat-value">{{ formatCurrency(ledger.summary.totalItcReversal) }}</span>
-                </span>
-                <span class="ledger-stat">
-                    <span class="stat-label">Interest:</span>
-                    <span class="stat-value">{{ formatCurrency(ledger.summary.totalInterest) }}</span>
-                </span>
-            </div>
-        </div>
+    <!-- ═══════════════════════════════════════════════════════════════════════════
+         📊 LEDGER BREAKDOWN - Expandable Cards with Supplier Groups
+    ═══════════════════════════════════════════════════════════════════════════ -->
+    @for (ledger of results(); track ledger.ledgerName; let i = $index) {
+    <section class="ledger-section" [class.expanded]="expandedLedgers[ledger.ledgerName]">
 
-        @if (ledger.summary.details.length > 0) {
-        <!-- Group by Supplier -->
-        @for (group of getGroupedBySupplier(ledger); track group.supplier) {
-        <div class="supplier-group">
-            <div class="supplier-header">
-                <span class="supplier-name">
-                    <i class="pi pi-user"></i>
-                    {{ group.supplier }}
-                </span>
+        <!-- Ledger Header (Clickable to Expand) -->
+        <header class="ledger-header" (click)="toggleLedger(ledger.ledgerName)">
+            <div class="ledger-identity">
+                <div class="ledger-icon">
+                    <i class="pi pi-file-excel"></i>
+                </div>
+                <div class="ledger-meta">
+                    <h3 class="ledger-name">{{ ledger.ledgerName }}</h3>
+                    <span class="ledger-invoice-count">
+                        {{ ledger.summary.details.length }} {{ ledger.summary.details.length === 1 ? 'transaction' :
+                        'transactions' }}
+                    </span>
+                </div>
             </div>
 
-            <p-table [value]="group.rows" styleClass="p-datatable-sm p-datatable-striped" [scrollable]="true">
-                <ng-template pTemplate="header">
-                    <tr>
-                        <th>Purchase Date</th>
-                        <th>Payment Date</th>
-                        <th>Days Delayed</th>
-                        <th class="text-right">Purchase Amount</th>
-                        <th class="text-right">ITC Reversal</th>
-                        <th class="text-right">Interest</th>
-                    </tr>
-                </ng-template>
-                <ng-template pTemplate="body" let-row>
-                    <tr>
-                        <td>{{ formatDate(row.purchaseDate) }}</td>
-                        <td>{{ formatDate(row.paymentDate) }}</td>
-                        <td>
-                            @if (row.delayDays > 0) {
-                            <span class="days-badge warning">{{ row.delayDays }} days</span>
-                            } @else {
-                            <span class="days-badge success">On time</span>
+            <div class="ledger-metrics">
+                <div class="metric">
+                    <span class="metric-value itc">{{ formatCurrency(ledger.summary.totalItcReversal) }}</span>
+                    <span class="metric-label">ITC</span>
+                </div>
+                <div class="metric">
+                    <span class="metric-value interest">{{ formatCurrency(ledger.summary.totalInterest) }}</span>
+                    <span class="metric-label">Interest</span>
+                </div>
+            </div>
+
+            <div class="expand-indicator">
+                <i class="pi" [class.pi-chevron-down]="!expandedLedgers[ledger.ledgerName]"
+                    [class.pi-chevron-up]="expandedLedgers[ledger.ledgerName]"></i>
+            </div>
+        </header>
+
+        <!-- Ledger Details (Collapsible) -->
+        @if (expandedLedgers[ledger.ledgerName] !== false) {
+        <div class="ledger-details" @slideDown>
+            @if (ledger.summary.details.length > 0) {
+
+            @for (group of getGroupedBySupplier(ledger); track group.supplier) {
+            <div class="supplier-block">
+                <div class="supplier-ribbon">
+                    <div class="supplier-icon">
+                        <i class="pi pi-building"></i>
+                    </div>
+                    <span class="supplier-name">{{ group.supplier }}</span>
+                    <span class="transaction-count">{{ group.rows.length }} items</span>
+                </div>
+
+                <!-- Premium Data Table -->
+                <div class="table-container">
+                    <table class="premium-table">
+                        <thead>
+                            <tr>
+                                <th class="col-status">Status</th>
+                                <th class="col-date">Invoice Date</th>
+                                <th class="col-deadline">Deadline</th>
+                                <th class="col-date">Paid On</th>
+                                <th class="col-days">Days Over</th>
+                                <th class="col-amount">Invoice</th>
+                                <th class="col-amount">ITC</th>
+                                <th class="col-amount">Interest</th>
+                                <th class="col-gstr">GSTR-3B</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @for (row of group.rows; track row.purchaseDate + row.principal) {
+                            <tr [class]="'row-' + (row.riskCategory || 'safe').toLowerCase()">
+                                <td>
+                                    <div class="status-pill" [class]="(row.status || 'unpaid').toLowerCase()">
+                                        @if (row.status === 'UNPAID') {
+                                        <i class="pi pi-exclamation-triangle"></i>
+                                        <span>Unpaid</span>
+                                        } @else {
+                                        <i class="pi pi-check-circle"></i>
+                                        <span>Late</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td class="date-cell">{{ formatDate(row.purchaseDate) }}</td>
+                                <td class="deadline-cell" [class.breached]="row.daysToDeadline < 0">
+                                    <span class="deadline-date">{{ formatDate(row.paymentDeadline) }}</span>
+                                    @if (row.daysToDeadline < 0) { <span class="overdue-indicator">{{
+                                        -row.daysToDeadline }}d overdue</span>
+                                        }
+                                </td>
+                                <td class="date-cell">
+                                    @if (row.paymentDate) {
+                                    {{ formatDate(row.paymentDate) }}
+                                    } @else {
+                                    <span class="null-value">—</span>
+                                    }
+                                </td>
+                                <td class="days-cell">
+                                    <span class="days-chip" [class]="getRiskClass(row.riskCategory)">
+                                        +{{ row.delayDays - 180 }}
+                                    </span>
+                                </td>
+                                <td class="amount-cell invoice">{{ formatCurrency(row.principal) }}</td>
+                                <td class="amount-cell itc">{{ formatCurrency(row.itcAmount) }}</td>
+                                <td class="amount-cell interest">{{ formatCurrency(row.interest) }}</td>
+                                <td>
+                                    <span class="gstr-badge">{{ row.gstr3bPeriod }}</span>
+                                </td>
+                            </tr>
                             }
-                        </td>
-                        <!-- Fixed Property Bindings: principal & itcAmount -->
-                        <td class="text-right">{{ formatCurrency(row.principal) }}</td>
-                        <td class="text-right">{{ formatCurrency(row.itcAmount) }}</td>
-                        <td class="text-right">{{ formatCurrency(row.interest) }}</td>
-                    </tr>
-                </ng-template>
-            </p-table>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            }
+
+            } @else {
+            <div class="all-clear">
+                <div class="success-icon">
+                    <i class="pi pi-verified"></i>
+                </div>
+                <h4>All Payments On Time</h4>
+                <p>No Rule 37 liability for this ledger</p>
+            </div>
+            }
         </div>
         }
-        } @else {
-        <div class="no-issues">
-            <i class="pi pi-check-circle"></i>
-            <span>No delayed payments - all clear!</span>
-        </div>
-        }
-    </div>
+    </section>
     }
 </div>

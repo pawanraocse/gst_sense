@@ -4,147 +4,260 @@ import com.learning.backendservice.domain.ledger.LedgerEntry;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.Month;
+import java.time.format.TextStyle;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
- * Rule 37 (180-day ITC reversal) interest calculation.
- * Port of MVP {@code gstCalculations.ts}.
+ * Rule 37 (180-day ITC reversal) interest calculation service.
  *
- * <p>Formulas (must preserve):
+ * <p>
+ * <b>Formulas (GST compliant):</b>
  * <ul>
- *   <li>ITC Amount = principal × (18 / 118)</li>
- *   <li>Interest = itcAmount × 0.18 × delayDays / 365</li>
+ * <li>ITC Amount = principal × (18 / 118)</li>
+ * <li>Interest = itcAmount × 0.18 × delayDays / 365</li>
  * </ul>
  *
- * <p>Algorithm: FIFO purchase/payment matching per supplier; PAID_LATE vs UNPAID.
+ * <p>
+ * <b>Algorithm:</b> FIFO purchase/payment matching per supplier.
+ *
+ * @see Rule37InterestCalculator
  */
 @Service
 public class Rule37InterestCalculationService implements Rule37InterestCalculator {
 
+    // GST calculation constants
     private static final double ITC_RATE = 18.0 / 118.0;
     private static final double INTEREST_RATE = 0.18;
     private static final int DAYS_THRESHOLD = 180;
+    private static final int AT_RISK_THRESHOLD = 150;
+    private static final int DAYS_IN_YEAR = 365;
+    private static final int DECIMAL_PLACES = 2;
 
     @Override
     public CalculationSummary calculate(List<LedgerEntry> entries, LocalDate asOnDate) {
-        List<LedgerEntry> sorted = entries.stream()
+        var queues = partitionBySupplier(entries);
+        var results = processAllSuppliers(queues, asOnDate);
+        return buildSummary(results, asOnDate);
+    }
+
+    /**
+     * Partitions ledger entries into purchase and payment queues per supplier.
+     */
+    private SupplierQueues partitionBySupplier(List<LedgerEntry> entries) {
+        Map<String, List<MutableLedgerItem>> purchases = new LinkedHashMap<>();
+        Map<String, List<MutableLedgerItem>> payments = new LinkedHashMap<>();
+
+        entries.stream()
                 .sorted(Comparator.comparing(LedgerEntry::getDate))
-                .toList();
+                .forEach(entry -> {
+                    var map = entry.getEntryType() == LedgerEntry.LedgerEntryType.PURCHASE
+                            ? purchases
+                            : payments;
+                    map.computeIfAbsent(entry.getSupplier(), k -> new ArrayList<>())
+                            .add(new MutableLedgerItem(entry.getDate(), entry.getAmount()));
+                });
 
-        Map<String, List<PurchaseItem>> purchaseQueues = new LinkedHashMap<>();
-        Map<String, List<PaymentItem>> paymentQueues = new LinkedHashMap<>();
+        return new SupplierQueues(purchases, payments);
+    }
 
-        for (LedgerEntry entry : sorted) {
-            String supplier = entry.getSupplier();
-            if (entry.getEntryType() == LedgerEntry.LedgerEntryType.PURCHASE) {
-                purchaseQueues.computeIfAbsent(supplier, k -> new ArrayList<>())
-                        .add(new PurchaseItem(entry.getDate(), entry.getAmount()));
-            } else if (entry.getEntryType() == LedgerEntry.LedgerEntryType.PAYMENT) {
-                paymentQueues.computeIfAbsent(supplier, k -> new ArrayList<>())
-                        .add(new PaymentItem(entry.getDate(), entry.getAmount()));
-            }
-        }
-
+    /**
+     * Processes all suppliers and collects interest rows.
+     */
+    private List<InterestRow> processAllSuppliers(SupplierQueues queues, LocalDate asOnDate) {
         List<InterestRow> results = new ArrayList<>();
 
-        for (Map.Entry<String, List<PurchaseItem>> e : purchaseQueues.entrySet()) {
-            String supplier = e.getKey();
-            List<PurchaseItem> pQueue = new ArrayList<>(e.getValue());
-            List<PaymentItem> payQueue = new ArrayList<>(paymentQueues.getOrDefault(supplier, List.of()));
+        queues.purchases().forEach((supplier, purchaseQueue) -> {
+            var paymentQueue = new ArrayList<>(
+                    queues.payments().getOrDefault(supplier, List.of()));
+            var pQueue = new ArrayList<>(purchaseQueue);
 
-            // FIFO matching: PAID_LATE
-            while (!pQueue.isEmpty() && !payQueue.isEmpty()) {
-                PurchaseItem purchase = pQueue.get(0);
-                PaymentItem payment = payQueue.get(0);
-                double matched = Math.min(purchase.amount, payment.amount);
-                int delayDays = (int) java.time.temporal.ChronoUnit.DAYS.between(purchase.date, payment.date);
+            // FIFO matching for PAID_LATE entries
+            processFifoMatching(supplier, pQueue, paymentQueue, asOnDate, results);
 
-                if (delayDays > DAYS_THRESHOLD) {
-                    var computed = computeItcAndInterest(matched, delayDays);
-                    results.add(InterestRow.builder()
-                            .supplier(supplier)
-                            .purchaseDate(purchase.date)
-                            .paymentDate(payment.date)
-                            .principal(matched)
-                            .delayDays(delayDays)
-                            .itcAmount(computed.itcAmount())
-                            .interest(computed.interest())
-                            .status(InterestRow.InterestStatus.PAID_LATE)
-                            .build());
-                }
+            // Remaining purchases are UNPAID
+            processUnpaidPurchases(supplier, pQueue, asOnDate, results);
+        });
 
-                purchase.amount -= matched;
-                payment.amount -= matched;
-                if (purchase.amount <= 0) pQueue.remove(0);
-                if (payment.amount <= 0) payQueue.remove(0);
+        return results;
+    }
+
+    /**
+     * FIFO matching algorithm: matches purchases against payments chronologically.
+     */
+    private void processFifoMatching(String supplier, List<MutableLedgerItem> purchases,
+            List<MutableLedgerItem> payments, LocalDate asOnDate, List<InterestRow> results) {
+
+        while (!purchases.isEmpty() && !payments.isEmpty()) {
+            var purchase = purchases.getFirst();
+            var payment = payments.getFirst();
+            double matched = Math.min(purchase.amount(), payment.amount());
+            int delayDays = daysBetween(purchase.date(), payment.date());
+
+            if (delayDays > DAYS_THRESHOLD) {
+                results.add(createInterestRow(supplier, purchase.date(), payment.date(),
+                        matched, delayDays, InterestRow.InterestStatus.PAID_LATE, asOnDate));
             }
 
-            // Unmatched purchases: UNPAID
-            for (PurchaseItem purchase : pQueue) {
-                int delayDays = (int) java.time.temporal.ChronoUnit.DAYS.between(purchase.date, asOnDate);
-                if (delayDays > DAYS_THRESHOLD) {
-                    var computed = computeItcAndInterest(purchase.amount, delayDays);
-                    results.add(InterestRow.builder()
-                            .supplier(supplier)
-                            .purchaseDate(purchase.date)
-                            .paymentDate(null)
-                            .principal(purchase.amount)
-                            .delayDays(delayDays)
-                            .itcAmount(computed.itcAmount())
-                            .interest(computed.interest())
-                            .status(InterestRow.InterestStatus.UNPAID)
-                            .build());
-                }
-            }
+            // Reduce amounts and remove exhausted items
+            purchase.reduceBy(matched);
+            payment.reduceBy(matched);
+            if (purchase.isExhausted())
+                purchases.removeFirst();
+            if (payment.isExhausted())
+                payments.removeFirst();
         }
+    }
 
-        double totalInterest = results.stream().mapToDouble(InterestRow::getInterest).sum();
+    /**
+     * Processes remaining unpaid purchases that exceed the 180-day threshold.
+     */
+    private void processUnpaidPurchases(String supplier, List<MutableLedgerItem> purchases,
+            LocalDate asOnDate, List<InterestRow> results) {
+
+        purchases.stream()
+                .filter(p -> daysBetween(p.date(), asOnDate) > DAYS_THRESHOLD)
+                .forEach(purchase -> results.add(createInterestRow(
+                        supplier, purchase.date(), null, purchase.amount(),
+                        daysBetween(purchase.date(), asOnDate),
+                        InterestRow.InterestStatus.UNPAID, asOnDate)));
+    }
+
+    /**
+     * Creates an InterestRow with all computed fields.
+     */
+    private InterestRow createInterestRow(String supplier, LocalDate purchaseDate,
+            LocalDate paymentDate, double principal, int delayDays,
+            InterestRow.InterestStatus status, LocalDate asOnDate) {
+
+        LocalDate deadline = purchaseDate.plusDays(DAYS_THRESHOLD);
+        var itcInterest = computeItcAndInterest(principal, delayDays);
+
+        return InterestRow.builder()
+                .supplier(supplier)
+                .purchaseDate(purchaseDate)
+                .paymentDate(paymentDate)
+                .principal(principal)
+                .delayDays(delayDays)
+                .itcAmount(itcInterest.itcAmount())
+                .interest(itcInterest.interest())
+                .status(status)
+                .paymentDeadline(deadline)
+                .riskCategory(categorizeRisk(delayDays))
+                .gstr3bPeriod(formatGstr3bPeriod(deadline))
+                .daysToDeadline(daysBetween(asOnDate, deadline))
+                .build();
+    }
+
+    /**
+     * Builds the calculation summary with aggregated metrics.
+     */
+    private CalculationSummary buildSummary(List<InterestRow> results, LocalDate asOnDate) {
+        double totalInterest = results.stream()
+                .mapToDouble(InterestRow::getInterest)
+                .sum();
+
         double totalItcReversal = results.stream()
                 .filter(r -> r.getStatus() == InterestRow.InterestStatus.UNPAID)
                 .mapToDouble(InterestRow::getItcAmount)
                 .sum();
 
+        var atRiskRows = results.stream()
+                .filter(r -> r.getRiskCategory() == InterestRow.RiskCategory.AT_RISK)
+                .toList();
+
+        long breachedCount = results.stream()
+                .filter(r -> r.getRiskCategory() == InterestRow.RiskCategory.BREACHED)
+                .count();
+
         return CalculationSummary.builder()
-                .totalInterest(round(totalInterest, 2))
-                .totalItcReversal(round(totalItcReversal, 2))
+                .totalInterest(round(totalInterest))
+                .totalItcReversal(round(totalItcReversal))
                 .details(results)
+                .atRiskCount(atRiskRows.size())
+                .atRiskAmount(round(atRiskRows.stream().mapToDouble(InterestRow::getPrincipal).sum()))
+                .breachedCount((int) breachedCount)
+                .calculationDate(asOnDate)
                 .build();
     }
 
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Pure calculation methods (Single Responsibility)
+    // ─────────────────────────────────────────────────────────────────────────────
+
     private static ItcInterest computeItcAndInterest(double principal, int delayDays) {
-        double itcAmount = round(principal * ITC_RATE, 2);
-        double interest = round(itcAmount * INTEREST_RATE * delayDays / 365, 2);
+        double itcAmount = round(principal * ITC_RATE);
+        double interest = round(itcAmount * INTEREST_RATE * delayDays / DAYS_IN_YEAR);
         return new ItcInterest(itcAmount, interest);
     }
 
-    private static double round(double value, int decimals) {
-        double factor = Math.pow(10, decimals);
+    private static InterestRow.RiskCategory categorizeRisk(int delayDays) {
+        if (delayDays <= AT_RISK_THRESHOLD)
+            return InterestRow.RiskCategory.SAFE;
+        if (delayDays <= DAYS_THRESHOLD)
+            return InterestRow.RiskCategory.AT_RISK;
+        return InterestRow.RiskCategory.BREACHED;
+    }
+
+    private static String formatGstr3bPeriod(LocalDate deadline) {
+        LocalDate reportingMonth = deadline.plusMonths(1);
+        Month month = reportingMonth.getMonth();
+        return month.getDisplayName(TextStyle.SHORT, Locale.ENGLISH) + " " + reportingMonth.getYear();
+    }
+
+    private static int daysBetween(LocalDate from, LocalDate to) {
+        return (int) ChronoUnit.DAYS.between(from, to);
+    }
+
+    private static double round(double value) {
+        double factor = Math.pow(10, DECIMAL_PLACES);
         return Math.round(value * factor) / factor;
     }
 
-    private record ItcInterest(double itcAmount, double interest) {}
+    // ─────────────────────────────────────────────────────────────────────────────
+    // Immutable records for data transfer (modern Java 17+)
+    // ─────────────────────────────────────────────────────────────────────────────
 
-    private static class PurchaseItem {
-        LocalDate date;
-        double amount;
+    private record ItcInterest(double itcAmount, double interest) {
+    }
 
-        PurchaseItem(LocalDate date, double amount) {
+    private record SupplierQueues(
+            Map<String, List<MutableLedgerItem>> purchases,
+            Map<String, List<MutableLedgerItem>> payments) {
+    }
+
+    /**
+     * Mutable ledger item for FIFO matching (amount reduces during processing).
+     */
+    private static final class MutableLedgerItem {
+        private final LocalDate date;
+        private double amount;
+
+        MutableLedgerItem(LocalDate date, double amount) {
             this.date = date;
             this.amount = amount;
         }
-    }
 
-    private static class PaymentItem {
-        LocalDate date;
-        double amount;
+        LocalDate date() {
+            return date;
+        }
 
-        PaymentItem(LocalDate date, double amount) {
-            this.date = date;
-            this.amount = amount;
+        double amount() {
+            return amount;
+        }
+
+        void reduceBy(double value) {
+            this.amount -= value;
+        }
+
+        boolean isExhausted() {
+            return amount <= 0;
         }
     }
 }

@@ -3,6 +3,8 @@
  * Maps to backend DTOs.
  */
 
+export type RiskCategory = 'SAFE' | 'AT_RISK' | 'BREACHED';
+
 export interface InterestRow {
   supplier: string;
   purchaseDate: string;
@@ -12,12 +14,22 @@ export interface InterestRow {
   itcAmount: number;
   interest: number;
   status: 'PAID_LATE' | 'UNPAID';
+  // Production enhancements
+  paymentDeadline: string;         // purchaseDate + 180 days
+  riskCategory: RiskCategory;      // SAFE, AT_RISK, BREACHED
+  gstr3bPeriod: string;            // Return period for reversal (e.g., "Jan 2025")
+  daysToDeadline: number;          // Days until/since 180-day deadline (negative = breached)
 }
 
 export interface CalculationSummary {
   totalInterest: number;
   totalItcReversal: number;
   details: InterestRow[];
+  // Production enhancements
+  atRiskCount: number;
+  atRiskAmount: number;
+  breachedCount: number;
+  calculationDate: string;
 }
 
 export interface LedgerResult {

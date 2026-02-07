@@ -98,6 +98,10 @@ export class DashboardComponent {
             summary: {
               totalInterest: r.summary.totalInterest,
               totalItcReversal: r.summary.totalItcReversal,
+              atRiskCount: r.summary.atRiskCount ?? 0,
+              atRiskAmount: r.summary.atRiskAmount ?? 0,
+              breachedCount: r.summary.breachedCount ?? 0,
+              calculationDate: r.summary.calculationDate ?? new Date().toISOString().split('T')[0],
               details: r.summary.details.map((d) => ({
                 ...d,
                 purchaseDate: d.purchaseDate ?? '',
